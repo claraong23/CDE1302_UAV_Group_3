@@ -1,0 +1,21 @@
+# Tag layout for today's ellipse test (tag_mission.py --trajectory).
+#
+# Frame: origin = the start point (no tag there); +x = forward from the start,
+# the direction the tags' printed TOP edges point; +y = to the right. Metres.
+# Use --traj-rotate 180 so the ellipse (2.0 m x 1.0 m) extends towards +x:
+# it then covers x 0..2, y -0.5..+0.5.
+#
+# The camera sees only about 0.45 m to either side at 0.5 m height (for the
+# whole tag to fit), so a tag must be within ~0.45 m of the flight path to
+# be used. See the notes per tag.
+
+tag_size_m: 0.12
+
+known_tags:          # id: [x, y, yaw_deg]
+  2: [0.15,  0.00, 0]     # 0.15 m ahead of the start: seen at the start and end
+  8: [0.95,  0.00, 0]     # centre line: the path passes 0.5 m to each side -> likely not seen
+  9: [0.95, -0.90, 0]     # 0.9 m left: 0.4 m outside the ellipse -> not seen
+
+targets: [4, 5, 6, 7]
+
+route: []            # not used with --trajectory
