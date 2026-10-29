@@ -84,6 +84,10 @@ at_live_dets_t at_detect_get_live(void)
 static const char *TAG = "apriltag_detect";
 
 #if ESP_CAMERA_SUPPORTED
+/* Fixed camera exposure, 0-1200 (OV2640/OV3660 sensor units). Lower = shorter
+ * exposure: less motion blur but a darker image. Tuned on the XIAO bench. */
+#define CAMERA_EXPOSURE 50
+
 static camera_config_t camera_config = {
     .pin_pwdn = PWDN_GPIO_NUM,
     .pin_reset = RESET_GPIO_NUM,
@@ -140,6 +144,12 @@ static esp_err_t init_camera(void)
       s->set_brightness(s, 1); // up the brightness just a bit
       s->set_saturation(s, -2); // lower the saturation
     }
+    /* Fixed exposure instead of auto: shorter exposure = less motion blur.
+     * Same as the XIAO bench rig (esp_camera tag_test.py DEFAULT_EXPOSURE).
+     * Gain stays automatic, as on the bench. */
+    s->set_exposure_ctrl(s, 0);              // auto exposure off
+    s->set_aec_value(s, CAMERA_EXPOSURE);    // fixed exposure, sensor units 0-1200
+    s->set_gain_ctrl(s, 1);                  // auto gain on
     s->set_pixformat(s, PIXFORMAT_GRAYSCALE);
     return ESP_OK;
 }
