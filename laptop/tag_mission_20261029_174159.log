@@ -1,0 +1,31 @@
+17:41:59.834 | INFO | Nav-tag map set (0 tags, 0 drones configured)
+17:41:59.837 | INFO | CommsNode listening on UDP port 5005
+17:41:59.838 | INFO | Waiting for telemetry from drone 3...
+17:41:59.948 | INFO | Drone 3 first contact — sent nav tags
+17:41:59.952 | INFO | Tags from drone's own detections (UDP 5008): tag_stream.py may run. Known tags [2, 8, 9], targets [4, 5, 6, 7], camera pitch 90 deg.
+17:42:04.703 | INFO | TAKEOFF command sent (CMD_START)
+17:42:04.704 | INFO | CMD_START sent to drone 3.
+17:42:18.723 | WARNING | No known tag seen after takeoff: assuming the drone took off at (0, 0) facing +x until a landmark is seen.
+17:42:18.759 | INFO | Tag 2 registered to drone 3
+17:42:18.760 | INFO | First tag fix from tag(s) [2]: drone at x=0.04 y=-0.04 heading -0 deg
+17:42:19.128 | INFO | Trajectory started from arena x=0.01 y=0.04 (34.0 s)
+17:42:19.128 | INFO |   at x=0.03 y=-0.09  (last tag fix 0.4 s ago)
+17:42:20.131 | INFO |   at x=0.03 y=-0.08  (last tag fix 0.5 s ago)
+17:42:21.133 | INFO |   at x=0.06 y=-0.17  (last tag fix 0.6 s ago)
+17:42:22.134 | INFO |   at x=0.08 y=-0.25  (last tag fix 1.6 s ago)
+17:42:23.135 | INFO |   at x=0.21 y=-0.42  (last tag fix 2.6 s ago)
+17:42:24.136 | INFO |   at x=0.35 y=-0.52  (last tag fix 3.6 s ago)
+17:42:25.137 | INFO |   at x=0.49 y=-0.61  (last tag fix 4.6 s ago)
+17:42:26.138 | INFO |   at x=0.49 y=-0.61  (last tag fix 5.6 s ago)
+17:42:27.139 | INFO |   at x=0.63 y=-0.69  (last tag fix 6.6 s ago)
+17:42:28.140 | INFO |   at x=0.57 y=-0.70  (last tag fix 7.6 s ago)
+17:42:29.142 | INFO |   at x=0.62 y=-0.70  (last tag fix 8.6 s ago)
+17:42:30.143 | INFO |   at x=0.61 y=-0.70  (last tag fix 9.6 s ago)
+17:42:31.144 | INFO | Trajectory ended at arena x=0.61 y=-0.69; planned end x=0.01 y=0.04 (off by 0.94 m)
+17:42:31.145 | INFO | LAND command sent (CMD_LAND)
+17:42:31.449 | INFO | CMD_LAND sent to drone 3.
+17:42:31.455 | INFO | Frames 57, tag fixes 3 (0 ignored).
+17:42:31.456 | INFO | TARGETS (arena frame, median of sightings):
+17:42:31.456 | INFO |   ID   x (m)    y (m)    sightings  method  first seen
+17:42:31.457 | INFO |   not found: [4, 5, 6, 7]
+17:42:34.549 | INFO | CommsNode stopped
