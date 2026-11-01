@@ -571,6 +571,47 @@ def run_search(comms, drone_id, tracker, corr: Correction, loc, arena: Arena,
         timeout = math.hypot(x - cx, y - cy) / plan.goto_speed * 1.5 + 15.0
         return fly_to(comms, drone_id, tracker, corr, x, y, radius=radius, timeout=timeout)
 
+    def arena_pose():
+        snap = tracker.latest()
+        if time.monotonic() - snap.received_at > STALE_TIMEOUT_S:
+            raise ConnectionError("Telemetry is stale.")
+        p = snap.packet
+        return corr.to_arena(p.ned_x, p.ned_y, p.heading_rad)    # x, y, heading (arena frame)
+
+    def fly_smooth(points, stop_when=None) -> bool:
+        """Trajectory from the current position through `points`; the heading does not change."""
+        sx, sy, _ = arena_pose()
+        prof = smooth_trajectory([(sx, sy)] + list(points), plan.speed, dt_ms / 1000.0)
+        if prof["length"] < 0.03:
+            return False
+        offsets = np.column_stack([prof["xy"] - prof["xy"][0], np.zeros(len(prof["xy"]))])
+        log.info("  smooth path %.2f m, %.0f s, %d points", prof["length"], prof["duration"], len(offsets))
+        return play_trajectory(comms, drone_id, tracker, corr, offsets,
+                               int(round(prof["dt"] * 1000)), stop_when=stop_when)
+
+    def face(heading_deg: float) -> float:
+        """Turn the nose to `heading_deg` (arena frame). There is no yaw command: CMD_GOTO
+        points the drone at its goal while it flies, so aim at a point `look_m` away in the
+        wanted direction, wait until the heading is within tolerance, then HOLD (which keeps
+        the heading). Returns the final heading error in degrees."""
+        want = math.radians(heading_deg)
+        tol = math.radians(plan.turn["tolerance_deg"])
+        for attempt in range(1, plan.turn["attempts"] + 1):
+            x, y, yaw = arena_pose()
+            if abs(wrap(yaw - want)) <= tol:
+                break
+            gx, gy = corr.to_odom(x + plan.turn["look_m"] * math.cos(want),
+                                  y + plan.turn["look_m"] * math.sin(want))
+            send_goto(comms, drone_id, gx, gy)
+            t_end = time.monotonic() + plan.turn["timeout_s"]
+            while time.monotonic() < t_end and abs(wrap(arena_pose()[2] - want)) > tol:
+                time.sleep(0.1)
+            send_command(comms, drone_id, CMD_HOLD, "CMD_HOLD")
+            time.sleep(0.8)                     # let it stop
+            log.info("  turn attempt %d: heading %.0f deg (want %.0f)", attempt,
+                     math.degrees(arena_pose()[2]), heading_deg)
+        return math.degrees(wrap(arena_pose()[2] - want))
+
     stop = all_found if plan.stop_early else None
     missed = 0
     log.info("SEARCH: %s mode, %d pattern(s), expecting %d target(s), max %d loop(s)",
@@ -579,19 +620,25 @@ def run_search(comms, drone_id, tracker, corr: Correction, loc, arena: Arena,
         if not goto(x, y):
             missed += 1
     for loop in range(plan.max_loops):
-        name, pts = plan.patterns[loop % len(plan.patterns)]
+        name, pts, heading = plan.patterns[loop % len(plan.patterns)]
         log.info("SEARCH pattern '%s' (loop %d/%d)", name, loop + 1, plan.max_loops)
-        if not goto(*pts[0], radius=0.10):      # start exactly on the decision corner
+        if not goto(*pts[0]):                   # back near the decision corner (any heading)
             missed += 1
-        time.sleep(1.0)                         # settle before a trajectory locks its start
+        if heading is not None and plan.mode == "trajectory":
+            err = face(heading)
+            fly_smooth([pts[0]])                # onto the exact corner without turning
+            time.sleep(1.0)                     # settle before the pattern locks its heading
+            _, _, yaw = arena_pose()
+            log.info("SEARCH pattern '%s' facing %.0f deg (wanted %.0f, error %.0f)",
+                     name, math.degrees(yaw), heading, err)
+            if abs(err) > plan.turn["tolerance_deg"]:
+                log.warning("Heading still %.0f deg off after turning; flying the pattern anyway.", err)
+        else:
+            if not goto(*pts[0], radius=0.10):  # start exactly on the decision corner
+                missed += 1
+            time.sleep(1.0)                     # settle before a trajectory locks its start
         if plan.mode == "trajectory":
-            snap = tracker.latest().packet
-            sx, sy, _ = corr.to_arena(snap.ned_x, snap.ned_y, snap.heading_rad)
-            prof = smooth_trajectory([(sx, sy)] + pts[1:], plan.speed, dt_ms / 1000.0)
-            offsets = np.column_stack([prof["xy"] - prof["xy"][0], np.zeros(len(prof["xy"]))])
-            log.info("  smooth path %.1f m, %.0f s, %d points", prof["length"], prof["duration"], len(offsets))
-            play_trajectory(comms, drone_id, tracker, corr, offsets,
-                            int(round(prof["dt"] * 1000)), stop_when=stop)
+            fly_smooth(pts[1:], stop_when=stop)
         else:
             for x, y in pts[1:]:
                 if stop is not None and stop():

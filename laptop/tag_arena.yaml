@@ -45,16 +45,24 @@ route:
 search:
   area: {x_min: 0.90, x_max: 4.50, y_min: -1.80, y_max: 1.35}   # green search area, as drawn
   # With the camera straight down the drone sees only ~0.45 m to each side, so on the
-  # green edges the middle spot (2.70, 0.90) is never in view (run the preview).
-  # Same shape with the top/bottom lines on the tag rows - every spot seen, ~15 s faster:
+  # green edges the middle spots are at the edge of the view: red (facing +x) misses
+  # (2.70, 0.90), blue (facing -x) misses (2.70, -1.35); together they cover all six.
+  # Same shape with the top/bottom lines on the tag rows - every spot seen in red alone:
   # area: {x_min: 0.90, x_max: 4.50, y_min: -1.35, y_max: 0.90}
   entry: [[0.90, 0.00], TL]          # straight forward to the area, then up its left edge
   exit:  [[0.90, 0.00], [0.00, 0.00]] # back down the left edge, home over tag 1, land
   patterns:                          # each starts and ends at the decision corner TL
     - name: red                      # flown first
       corners: [TL, BR, BL, TR, TL]
+      heading: 0                     # nose (camera top) faces +x for the whole pattern
     - name: blue                     # "try again": same lines, opposite direction
       corners: [TL, TR, BL, BR, TL]
+      heading: 180                   # turns at TL to face -x for the whole pattern
+  turn:                              # how the heading is set at TL (trajectory mode)
+    tolerance_deg: 10                # accept the heading when this close
+    look_m: 0.6                      # CMD_GOTO aim point this far away in the wanted direction
+    timeout_s: 8                     # per attempt
+    attempts: 3
   expected_tags: 3                   # targets the examiner placed (0 = all ids in `targets`)
   stop_early: true                   # leave as soon as that many targets have been seen
   max_loops: 2                       # patterns flown before giving up (repeats the list)

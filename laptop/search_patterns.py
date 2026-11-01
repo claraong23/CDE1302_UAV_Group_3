@@ -5,11 +5,16 @@ Search patterns for tag_mission.py --search (planning only, no drone I/O).
 The behaviour (configured in the `search:` block of tag_arena.yaml):
 
     pad -> forward to the search area -> up its left edge to TL   (entry)
+    turn to face +x at TL
     pattern "red":  TL -> BR -> BL -> TR -> TL   (the X plus top and bottom edges)
     DECISION at TL: every expected target found? -> exit and land
-                    otherwise                    -> next pattern
+                    otherwise                    -> turn to face -x, next pattern
     pattern "blue": TL -> TR -> BL -> BR -> TL   (same lines, opposite direction)
     exit: down the left edge to (0.9, 0) -> pad, land
+
+Heading: in trajectory mode the drone holds its heading for a whole pattern,
+so each pattern sets the heading it is flown with (`heading:` in degrees in
+the arena frame, 0 = facing +x, 180 = facing -x).
 
 Corner names are as seen on the handout drawing (x forward = right on the
 drawing, y right of the drone = down on the drawing):
@@ -55,8 +60,16 @@ class SearchPlan:
         }
         self.entry = [self.point(p) for p in cfg["entry"]]
         self.exit = [self.point(p) for p in cfg["exit"]]
-        self.patterns = [(p["name"], [self.point(c) for c in p["corners"]]) for p in cfg["patterns"]]
-        for name, pts in self.patterns:
+        # (name, points, heading_deg or None); heading None = keep whatever heading it has
+        self.patterns = [(p["name"], [self.point(c) for c in p["corners"]],
+                          None if p.get("heading") is None else float(p["heading"]))
+                         for p in cfg["patterns"]]
+        turn = cfg.get("turn") or {}
+        self.turn = {"tolerance_deg": float(turn.get("tolerance_deg", 10.0)),
+                     "look_m": float(turn.get("look_m", 0.6)),
+                     "timeout_s": float(turn.get("timeout_s", 8.0)),
+                     "attempts": int(turn.get("attempts", 3))}
+        for name, pts, _ in self.patterns:
             if math.dist(pts[0], pts[-1]) > 1e-6:
                 raise ValueError(f"search pattern '{name}' must start and end at the same corner "
                                  f"(the decision point)")
@@ -236,16 +249,21 @@ def smooth_trajectory(points, speed: dict, dt: float = 0.05):
 # ---------------------------------------------------------------------------
 # Preview helpers
 # ---------------------------------------------------------------------------
-def camera_coverage(xy, dt, spots, pitch_deg=90.0, altitude=0.5,
+def camera_coverage(xy, dt, spots, pitch_deg=90.0, altitude=0.5, heading_deg=0.0,
                     fx=163.5047216, fy=153.22210511, cx=154.00573087, cy=107.10222796,
                     width=320, height=240, margin_px=15, cam_pos=(0.02, 0.0, 0.0), max_range=2.0):
-    """Seconds each floor spot is fully inside the image (heading assumed +x)."""
+    """Seconds each floor spot is fully inside the image, flying with a fixed heading
+    (arena frame, 0 = facing +x)."""
     p = math.radians(pitch_deg)
     R = np.array([[0.0, -math.sin(p), math.cos(p)], [1.0, 0.0, 0.0], [0.0, math.cos(p), math.sin(p)]])
     off = np.asarray(cam_pos, float)
+    h = math.radians(heading_deg)
+    ch, sh = math.cos(h), math.sin(h)
     out = []
     for sx, sy in spots:
-        body = np.column_stack([sx - xy[:, 0], sy - xy[:, 1], np.full(len(xy), altitude)]) - off
+        dx, dy = sx - xy[:, 0], sy - xy[:, 1]
+        fwd, right = dx * ch + dy * sh, -dx * sh + dy * ch
+        body = np.column_stack([fwd, right, np.full(len(xy), altitude)]) - off
         c = body @ R
         ok = c[:, 2] > 0.05
         z = np.where(ok, c[:, 2], 1.0)
@@ -257,11 +275,11 @@ def camera_coverage(xy, dt, spots, pitch_deg=90.0, altitude=0.5,
 
 
 def plan_legs(plan: SearchPlan, start=(0.0, 0.0)):
-    """[(label, points)] for preview: entry + each pattern, and the exit from the decision corner."""
-    legs = [("entry", [start] + plan.entry)]
-    for name, pts in plan.patterns:
-        legs.append((name, pts))
-    legs.append(("exit", [plan.patterns[0][1][-1]] + plan.exit))
+    """[(label, points, heading_deg)] for preview: entry, each pattern, exit from the decision corner."""
+    legs = [("entry", [start] + plan.entry, None)]
+    for name, pts, heading in plan.patterns:
+        legs.append((name, pts, heading))
+    legs.append(("exit", [plan.patterns[0][1][-1]] + plan.exit, None))
     return legs
 
 
@@ -270,24 +288,26 @@ def preview(plan: SearchPlan, plot_path=None):
     print(f"Mode: {plan.mode}; expected tags: {plan.expected_tags or 'number of targets'}; "
           f"stop early: {plan.stop_early}; max loops: {plan.max_loops}")
     results = []
-    for label, pts in plan_legs(plan):
+    for label, pts, heading in plan_legs(plan):
         if plan.mode == "trajectory" or label in ("entry", "exit"):
             prof = smooth_trajectory(pts, plan.speed)
             secs = prof["duration"] if label not in ("entry", "exit") else prof["length"] / plan.goto_speed
         else:
             prof = smooth_trajectory(pts, plan.speed)
             secs = prof["length"] / plan.goto_speed
-        results.append((label, prof, secs))
+        results.append((label, prof, secs, heading))
         how = "trajectory" if (plan.mode == "trajectory" and label not in ("entry", "exit")) else "CMD_GOTO"
-        print(f"\n{label:6s} {prof['length']:5.2f} m  ~{secs:4.0f} s  ({how})")
+        facing = "" if heading is None else f", facing {heading:.0f} deg"
+        print(f"\n{label:6s} {prof['length']:5.2f} m  ~{secs:4.0f} s  ({how}{facing})")
         if plan.spots and label not in ("entry", "exit"):
             for (sx, sy), t_in in camera_coverage(prof["xy"], prof["dt"], plan.spots,
-                                                  plan.camera["pitch_deg"], plan.camera["altitude"]):
+                                                  plan.camera["pitch_deg"], plan.camera["altitude"],
+                                                  heading if heading is not None else 0.0):
                 flag = "" if t_in >= 1.0 else "   <-- NOT SEEN"
                 print(f"   spot ({sx:5.2f}, {sy:5.2f}) in view {t_in:5.1f} s{flag}")
     entry, exit_ = results[0][2], results[-1][2]
     total = entry
-    for label, prof, secs in results[1:-1]:
+    for label, prof, secs, _ in results[1:-1]:
         total += secs
         print(f"\nStop after {label}: ~{total + exit_:.0f} s of flight (excl. take-off/landing)")
     if plot_path:
@@ -307,13 +327,13 @@ def _plot(plan, results, path):
     fig, axes = plt.subplots(1, len(pats), figsize=(6.2 * len(pats), 5.6), squeeze=False)
     colours = {"red": "#c62828", "blue": "#1d4ed8"}
     a = plan.area
-    for ax, (label, prof, secs) in zip(axes[0], pats):
+    for ax, (label, prof, secs, heading) in zip(axes[0], pats):
         ax.add_patch(Rectangle((a["x_min"], a["y_min"]), a["x_max"] - a["x_min"], a["y_max"] - a["y_min"],
                                fill=False, ec="#4caf50", lw=2))
         ax.add_patch(Rectangle((-0.45, -0.45), 0.9, 0.9, fc="#4caf5033", ec="#2e7d32"))
         if plan.spots:
             ax.scatter(*zip(*plan.spots), s=70, facecolors="none", edgecolors="k", zorder=3)
-        for lab, pr, _ in results:
+        for lab, pr, _, _ in results:
             if lab in ("entry", "exit"):
                 ax.plot(pr["xy"][:, 0], pr["xy"][:, 1], color="#888", ls="--", lw=1.2)
         xy = prof["xy"]
@@ -325,11 +345,18 @@ def _plot(plan, results, path):
         for k, (x, y) in plan.corners.items():
             ax.annotate(k, (x, y), textcoords="offset points", xytext=(-14 if x == a["x_min"] else 6, -10 if y == a["y_min"] else 6))
         ax.plot(0, 0, "o", color="#ff6d00", ms=8)
+        if heading is not None:                         # camera/nose direction for this pattern
+            tl = plan.corners["TL"]
+            h = math.radians(heading)
+            ax.annotate("", xy=(tl[0] + 0.6 * math.cos(h), tl[1] + 0.6 * math.sin(h)), xytext=tl,
+                        arrowprops=dict(arrowstyle="-|>", color="k", lw=2.5))
+            ax.annotate(f"nose {heading:.0f}°", tl, textcoords="offset points", xytext=(4, -22), fontsize=9)
         ax.set_aspect("equal")
         ax.invert_yaxis()                               # y (drone's right) drawn downward, like the handout
         ax.set_xlabel("x forward (m)")
         ax.set_ylabel("y right (m)")
-        ax.set_title(f"{label}: ~{secs:.0f} s")
+        title_h = "" if heading is None else f", facing {heading:.0f}°"
+        ax.set_title(f"{label}: ~{secs:.0f} s{title_h}")
         ax.grid(alpha=0.3)
     fig.tight_layout()
     fig.savefig(path, dpi=120)
