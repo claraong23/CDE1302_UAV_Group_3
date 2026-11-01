@@ -27,6 +27,13 @@ flight, it just prints the tag-based position while you carry the drone.
 
     python laptop/tag_mission.py --drone-id 3 --dry-run
     python laptop/tag_mission.py --drone-id 3
+    python laptop/tag_mission.py --drone-id 3 --search     # search behaviour from tag_arena.yaml
+
+--search flies the `search:` block of the arena file instead of the route:
+entry -> pattern (red) -> decision at the TL corner -> next pattern (blue) only
+if not every expected target has been found -> exit -> land. Patterns are
+planned in search_patterns.py; preview them without a drone with
+    python laptop/search_patterns.py --plot search_plan.png
 
 Exit code: 0 all waypoints reached, 1 error or waypoint timeout, 130 Ctrl+C.
 """
@@ -71,6 +78,7 @@ from protocol import (
     build_traj_start,
     parse_at_debug,
 )
+from search_patterns import SearchPlan, smooth_trajectory
 from send_trajectory import UPLOAD_GAP_S, load_trajectory
 from simple_waypoint_mission import TelemetryTracker, send_command, send_goto
 
@@ -131,6 +139,7 @@ class Arena:
             self.known[int(tid)] = (np.array([x, y, 0.0]), rot_z(math.radians(yaw)) @ FLOOR)
         self.targets = {int(t) for t in cfg.get("targets") or []}
         self.route = [(float(x), float(y)) for x, y in cfg.get("route") or []]
+        self.search = SearchPlan(cfg["search"]) if cfg.get("search") else None
         if not self.known:
             raise SystemExit(f"{path}: no known_tags")
         if self.targets & set(self.known):
@@ -436,11 +445,11 @@ class TagLocaliser:
 # ---------------------------------------------------------------------------
 
 def fly_to(comms, drone_id, tracker, corr: Correction, ax: float, ay: float,
-           radius: float = ARRIVAL_RADIUS_M) -> bool:
+           radius: float = ARRIVAL_RADIUS_M, timeout: float = ARRIVAL_TIMEOUT_S) -> bool:
     """Fly to arena (ax, ay); the goal is re-sent as the drift correction changes."""
     start = time.monotonic()
     last_goal, last_sent, last_print, saw_moving = None, 0.0, 0.0, False
-    while time.monotonic() - start < ARRIVAL_TIMEOUT_S:
+    while time.monotonic() - start < timeout:
         now = time.monotonic()
         snap = tracker.latest()
         if now - snap.received_at > STALE_TIMEOUT_S:
@@ -465,17 +474,20 @@ def fly_to(comms, drone_id, tracker, corr: Correction, ax: float, ay: float,
             if dist <= radius:
                 return True
         time.sleep(0.2)
-    log.warning("Waypoint (%.2f, %.2f) not reached in %.0f s", ax, ay, ARRIVAL_TIMEOUT_S)
+    log.warning("Waypoint (%.2f, %.2f) not reached in %.0f s", ax, ay, timeout)
     return False
 
 
 def play_trajectory(comms, drone_id, tracker, corr: Correction, pts: np.ndarray,
-                    dt_ms: int) -> None:
+                    dt_ms: int, stop_when=None) -> bool:
     """Fly a trajectory given as offsets in the ARENA frame (x forward, y right).
 
     The ESP32 plays it on its own clock in PX4's frame, starting from wherever the
     drone hovers, so the offsets are rotated into PX4's frame with the current
-    tag correction before upload. It cannot be steered once it has started."""
+    tag correction before upload. It cannot be steered once it has started.
+
+    stop_when: optional function, checked every 0.2 s; when it returns True the
+    drone is told to hold and this returns True early (used by --search)."""
     with corr._lock:
         dyaw = corr.dyaw
     xy = (rot2(-dyaw) @ pts[:, :2].T).T
@@ -507,21 +519,98 @@ def play_trajectory(comms, drone_id, tracker, corr: Correction, pts: np.ndarray,
     duration = (len(pts) - 1) * dt_ms / 1000.0
     log.info("Trajectory started from arena x=%.2f y=%.2f (%.1f s)", sx, sy, duration)
     end = time.monotonic() + duration + 10.0
+    last_print = 0.0
+    stopped = False
     while time.monotonic() < end:
         snap = tracker.latest()
         if time.monotonic() - snap.received_at > STALE_TIMEOUT_S:
             raise ConnectionError("Telemetry is stale during the trajectory.")
         if snap.packet.nav_state != NAV_TRAJ:
             break
-        x, y, _ = corr.to_arena(snap.packet.ned_x, snap.packet.ned_y, snap.packet.heading_rad)
-        age = time.monotonic() - corr.last_fix if corr.have_fix else float("nan")
-        log.info("  at x=%.2f y=%.2f  (last tag fix %.1f s ago)", x, y, age)
-        time.sleep(1.0)
+        if stop_when is not None and stop_when():
+            send_command(comms, drone_id, CMD_HOLD, "CMD_HOLD")
+            stopped = True
+            break
+        if time.monotonic() - last_print >= 1.0:
+            last_print = time.monotonic()
+            x, y, _ = corr.to_arena(snap.packet.ned_x, snap.packet.ned_y, snap.packet.heading_rad)
+            age = time.monotonic() - corr.last_fix if corr.have_fix else float("nan")
+            log.info("  at x=%.2f y=%.2f  (last tag fix %.1f s ago)", x, y, age)
+        time.sleep(0.2)
     snap = tracker.latest().packet
+    if stopped:
+        x, y, _ = corr.to_arena(snap.ned_x, snap.ned_y, snap.heading_rad)
+        log.info("Trajectory stopped early at arena x=%.2f y=%.2f", x, y)
+        return True
     x, y, _ = corr.to_arena(snap.ned_x, snap.ned_y, snap.heading_rad)
     ex, ey = sx + pts[-1, 0], sy + pts[-1, 1]
     log.info("Trajectory ended at arena x=%.2f y=%.2f; planned end x=%.2f y=%.2f (off by %.2f m)",
              x, y, ex, ey, math.hypot(x - ex, y - ey))
+    return False
+
+
+# ---------------------------------------------------------------------------
+# Search behaviour (--search, configured in the arena file's `search:` block)
+# ---------------------------------------------------------------------------
+
+def run_search(comms, drone_id, tracker, corr: Correction, loc, arena: Arena,
+               dt_ms: int) -> int:
+    """entry -> pattern -> decision -> (next pattern) -> exit. Returns waypoints missed."""
+    plan = arena.search
+    expected = plan.expected_tags or len(arena.targets)
+
+    def found() -> int:
+        return len(loc.results())              # target ids seen at least once
+
+    def all_found() -> bool:
+        return found() >= expected
+
+    def goto(x, y, radius=ARRIVAL_RADIUS_M) -> bool:
+        snap = tracker.latest().packet
+        cx, cy, _ = corr.to_arena(snap.ned_x, snap.ned_y, snap.heading_rad)
+        timeout = math.hypot(x - cx, y - cy) / plan.goto_speed * 1.5 + 15.0
+        return fly_to(comms, drone_id, tracker, corr, x, y, radius=radius, timeout=timeout)
+
+    stop = all_found if plan.stop_early else None
+    missed = 0
+    log.info("SEARCH: %s mode, %d pattern(s), expecting %d target(s), max %d loop(s)",
+             plan.mode, len(plan.patterns), expected, plan.max_loops)
+    for x, y in plan.entry:                     # drift-corrected, like the route
+        if not goto(x, y):
+            missed += 1
+    for loop in range(plan.max_loops):
+        name, pts = plan.patterns[loop % len(plan.patterns)]
+        log.info("SEARCH pattern '%s' (loop %d/%d)", name, loop + 1, plan.max_loops)
+        if not goto(*pts[0], radius=0.10):      # start exactly on the decision corner
+            missed += 1
+        time.sleep(1.0)                         # settle before a trajectory locks its start
+        if plan.mode == "trajectory":
+            snap = tracker.latest().packet
+            sx, sy, _ = corr.to_arena(snap.ned_x, snap.ned_y, snap.heading_rad)
+            prof = smooth_trajectory([(sx, sy)] + pts[1:], plan.speed, dt_ms / 1000.0)
+            offsets = np.column_stack([prof["xy"] - prof["xy"][0], np.zeros(len(prof["xy"]))])
+            log.info("  smooth path %.1f m, %.0f s, %d points", prof["length"], prof["duration"], len(offsets))
+            play_trajectory(comms, drone_id, tracker, corr, offsets,
+                            int(round(prof["dt"] * 1000)), stop_when=stop)
+        else:
+            for x, y in pts[1:]:
+                if stop is not None and stop():
+                    send_command(comms, drone_id, CMD_HOLD, "CMD_HOLD")
+                    break
+                if not goto(x, y):
+                    missed += 1
+                    send_command(comms, drone_id, CMD_HOLD, "CMD_HOLD")
+        n = found()
+        if all_found():
+            log.info("DECISION: %d/%d targets found -> go back", n, expected)
+            break
+        last = loop + 1 == plan.max_loops
+        log.info("DECISION: %d/%d targets found -> %s", n, expected,
+                 "out of loops, go back" if last else "try again")
+    for x, y in plan.exit:
+        if not goto(x, y):
+            missed += 1
+    return missed
 
 
 def print_results(loc: TagLocaliser, arena: Arena) -> None:
@@ -554,6 +643,9 @@ def main() -> int:
     ap.add_argument("--dt", type=float, default=0.05, help="Trajectory upload sample period (s).")
     ap.add_argument("--max-speed", type=float, default=0.30,
                     help="Refuse faster trajectories (m/s).")
+    ap.add_argument("--search", action="store_true",
+                    help="Fly the search behaviour in the arena file's `search:` block "
+                         "instead of the route (see search_patterns.py).")
     ap.add_argument("--confirm", action="store_true",
                     help="Ask for confirmation before takeoff.")
     ap.add_argument("--laptop-camera", action="store_true",
@@ -587,7 +679,11 @@ def main() -> int:
         root.addHandler(fh)
 
     arena = Arena(Path(args.arena))
-    if traj_pts is None and not arena.route and not args.dry_run:
+    if args.search and arena.search is None:
+        raise SystemExit(f"{args.arena}: no 'search:' block for --search")
+    if args.search and args.trajectory:
+        raise SystemExit("use either --search or --trajectory, not both")
+    if traj_pts is None and not args.search and not arena.route and not args.dry_run:
         raise SystemExit(f"{args.arena}: no route (or pass --trajectory)")
     # Laptop-side detection only with --laptop-camera (built now, not mid-flight).
     detector = Detector(tag_size_m=arena.tag_size) if args.laptop_camera else None
@@ -636,7 +732,7 @@ def main() -> int:
                          x, y, math.degrees(yaw), age, loc.last_fix_tags or "-", pkt.ned_x, pkt.ned_y)
 
         if args.confirm:
-            what = args.trajectory or "the route"
+            what = args.trajectory or ("the search" if args.search else "the route")
             if input(f"Type GO-{drone_id} to take off and fly {what}: ").strip() != f"GO-{drone_id}":
                 log.info("Confirmation did not match; nothing sent.")
                 return 0
@@ -663,6 +759,16 @@ def main() -> int:
             log.info("LAND command sent (CMD_LAND)")
             send_command(comms, drone_id, CMD_LAND, "CMD_LAND", repeat=3)
             land_sent = True
+            return 0
+
+        if args.search:
+            missed = run_search(comms, drone_id, tracker, corr, loc, arena, dt_ms)
+            log.info("LAND command sent (CMD_LAND)")
+            send_command(comms, drone_id, CMD_LAND, "CMD_LAND", repeat=3)
+            land_sent = True
+            if missed:
+                log.warning("%d search waypoint(s) not reached.", missed)
+                return 1
             return 0
 
         missed = 0
