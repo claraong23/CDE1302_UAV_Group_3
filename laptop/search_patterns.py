@@ -51,15 +51,29 @@ class SearchPlan:
 
     def __init__(self, cfg: dict):
         a = cfg["area"]
-        self.area = {k: float(a[k]) for k in ("x_min", "x_max", "y_min", "y_max")}
+        if "length" in a:                      # centre + length (along x) + width (along y)
+            cx, cy = (float(v) for v in a["centre"])
+            length, width = float(a["length"]), float(a["width"])
+            if length <= 0 or width <= 0:
+                raise ValueError("search.area length and width must be positive")
+            self.area = {"x_min": cx - length / 2, "x_max": cx + length / 2,
+                         "y_min": cy - width / 2, "y_max": cy + width / 2}
+        else:                                  # or the four edges directly
+            self.area = {k: float(a[k]) for k in ("x_min", "x_max", "y_min", "y_max")}
+        self.length = self.area["x_max"] - self.area["x_min"]
+        self.width = self.area["y_max"] - self.area["y_min"]
         self.corners = {
             "TL": (self.area["x_min"], self.area["y_min"]),
             "TR": (self.area["x_max"], self.area["y_min"]),
             "BL": (self.area["x_min"], self.area["y_max"]),
             "BR": (self.area["x_max"], self.area["y_max"]),
         }
-        self.entry = [self.point(p) for p in cfg["entry"]]
-        self.exit = [self.point(p) for p in cfg["exit"]]
+        tl = self.corners["TL"]
+        # auto: straight forward along y = 0 to the box's near edge, then sideways to TL
+        # (and the reverse for the exit), so they follow the box when its size changes.
+        entry, exit_ = cfg.get("entry", "auto"), cfg.get("exit", "auto")
+        self.entry = ([(tl[0], 0.0), tl] if entry == "auto" else [self.point(p) for p in entry])
+        self.exit = ([(tl[0], 0.0), (0.0, 0.0)] if exit_ == "auto" else [self.point(p) for p in exit_])
         # (name, points, heading_deg or None); heading None = keep whatever heading it has
         self.patterns = [(p["name"], [self.point(c) for c in p["corners"]],
                           None if p.get("heading") is None else float(p["heading"]))
@@ -284,6 +298,8 @@ def plan_legs(plan: SearchPlan, start=(0.0, 0.0)):
 
 
 def preview(plan: SearchPlan, plot_path=None):
+    print(f"Box: length {plan.length:.2f} m (x {plan.area['x_min']:.2f}..{plan.area['x_max']:.2f}), "
+          f"width {plan.width:.2f} m (y {plan.area['y_min']:.2f}..{plan.area['y_max']:.2f})")
     print("Corners: " + ", ".join(f"{k}=({x:.2f}, {y:.2f})" for k, (x, y) in plan.corners.items()))
     print(f"Mode: {plan.mode}; expected tags: {plan.expected_tags or 'number of targets'}; "
           f"stop early: {plan.stop_early}; max loops: {plan.max_loops}")

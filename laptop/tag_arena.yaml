@@ -43,14 +43,18 @@ route:
 # Flight: pad -> entry -> pattern 1 -> DECISION at TL -> (pattern 2 ...) -> exit -> land.
 # At the decision: all expected targets found -> exit; otherwise the next pattern.
 search:
-  area: {x_min: 0.90, x_max: 4.50, y_min: -1.80, y_max: 1.35}   # green search area, as drawn
-  # With the camera straight down the drone sees only ~0.45 m to each side, so on the
-  # green edges the middle spots are at the edge of the view: red (facing +x) misses
+  area:                              # the rectangle the patterns are drawn in
+    centre: [2.70, -0.225]           # middle of the green search area (x, y)
+    length: 3.60                     # m along x (forward):  x 0.90 .. 4.50
+    width: 3.15                      # m along y (sideways): y -1.80 .. 1.35
+  # Changing length/width keeps the centre fixed; entry and exit follow the box.
+  # With the camera straight down the drone sees only ~0.45 m to each side, so at
+  # width 3.15 the middle spots are at the edge of the view: red (facing +x) misses
   # (2.70, 0.90), blue (facing -x) misses (2.70, -1.35); together they cover all six.
-  # Same shape with the top/bottom lines on the tag rows - every spot seen in red alone:
-  # area: {x_min: 0.90, x_max: 4.50, y_min: -1.35, y_max: 0.90}
-  entry: [[0.90, 0.00], TL]          # straight forward to the area, then up its left edge
-  exit:  [[0.90, 0.00], [0.00, 0.00]] # back down the left edge, home over tag 1, land
+  # width 2.25 puts the top/bottom lines on the tag rows (y -1.35, 0.90): every spot in red.
+  # (You can also give the edges directly: {x_min: .., x_max: .., y_min: .., y_max: ..})
+  entry: auto                        # forward along y=0 to the box, then up its left edge to TL
+  exit: auto                         # back down the left edge, home over tag 1, land
   patterns:                          # each starts and ends at the decision corner TL
     - name: red                      # flown first
       corners: [TL, BR, BL, TR, TL]
