@@ -27,6 +27,7 @@ preview the plan without a drone:
 
     python laptop/search_patterns.py                      # print timings + camera coverage
     python laptop/search_patterns.py --plot search_plan.png
+    python laptop/search_patterns.py --csv search_plans    # save each pattern as t,x,y,z CSV
 """
 from __future__ import annotations
 
@@ -260,6 +261,24 @@ def smooth_trajectory(points, speed: dict, dt: float = 0.05):
             "speed": spd}
 
 
+def write_csv(path, prof, note=""):
+    """Save a planned trajectory as t,x,y,z (s, m; arena frame: x forward, y right, z 0).
+
+    Same columns as the lab's trajectory CSVs, so it can be replayed with
+    `tag_mission.py --trajectory <file>` (x/y read as arena forward/right) or plotted
+    against the PX4 .ulg log."""
+    path = Path(path)
+    with path.open("w", newline="") as f:
+        f.write("# Search trajectory from search_patterns.py (arena frame, origin = tag 1)\n")
+        if note:
+            f.write(f"# {note}\n")
+        f.write(f"# {prof['length']:.2f} m, {prof['duration']:.1f} s, dt {prof['dt']:.3f} s\n")
+        f.write("t,x,y,z\n")
+        for i, (x, y) in enumerate(prof["xy"]):
+            f.write(f"{i * prof['dt']:.3f},{x:.4f},{y:.4f},0\n")
+    return path
+
+
 # ---------------------------------------------------------------------------
 # Preview helpers
 # ---------------------------------------------------------------------------
@@ -297,7 +316,7 @@ def plan_legs(plan: SearchPlan, start=(0.0, 0.0)):
     return legs
 
 
-def preview(plan: SearchPlan, plot_path=None):
+def preview(plan: SearchPlan, plot_path=None, csv_dir=None):
     print(f"Box: length {plan.length:.2f} m (x {plan.area['x_min']:.2f}..{plan.area['x_max']:.2f}), "
           f"width {plan.width:.2f} m (y {plan.area['y_min']:.2f}..{plan.area['y_max']:.2f})")
     print("Corners: " + ", ".join(f"{k}=({x:.2f}, {y:.2f})" for k, (x, y) in plan.corners.items()))
@@ -326,6 +345,14 @@ def preview(plan: SearchPlan, plot_path=None):
     for label, prof, secs, _ in results[1:-1]:
         total += secs
         print(f"\nStop after {label}: ~{total + exit_:.0f} s of flight (excl. take-off/landing)")
+    if csv_dir:
+        out = Path(csv_dir)
+        out.mkdir(parents=True, exist_ok=True)
+        for label, prof, _, heading in results[1:-1]:
+            facing = "" if heading is None else f", flown facing {heading:.0f} deg"
+            p = write_csv(out / f"search_plan_{label}.csv", prof,
+                          f"pattern '{label}' planned from the TL corner{facing}")
+            print(f"CSV saved to {p}")
     if plot_path:
         _plot(plan, results, plot_path)
 
@@ -384,5 +411,6 @@ if __name__ == "__main__":
     ap = argparse.ArgumentParser(description="Preview the tag_mission.py --search patterns")
     ap.add_argument("--arena", default=str(HERE / "tag_arena.yaml"))
     ap.add_argument("--plot", help="save a PNG of the patterns")
+    ap.add_argument("--csv", metavar="DIR", help="save each pattern as search_plan_<name>.csv (t,x,y,z) in DIR")
     args = ap.parse_args()
-    preview(load_plan(Path(args.arena)), args.plot)
+    preview(load_plan(Path(args.arena)), args.plot, args.csv)

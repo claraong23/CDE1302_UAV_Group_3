@@ -78,7 +78,7 @@ from protocol import (
     build_traj_start,
     parse_at_debug,
 )
-from search_patterns import SearchPlan, smooth_trajectory
+from search_patterns import SearchPlan, smooth_trajectory, write_csv
 from send_trajectory import UPLOAD_GAP_S, load_trajectory
 from simple_waypoint_mission import TelemetryTracker, send_command, send_goto
 
@@ -554,8 +554,11 @@ def play_trajectory(comms, drone_id, tracker, corr: Correction, pts: np.ndarray,
 # ---------------------------------------------------------------------------
 
 def run_search(comms, drone_id, tracker, corr: Correction, loc, arena: Arena,
-               dt_ms: int) -> int:
-    """entry -> pattern -> decision -> (next pattern) -> exit. Returns waypoints missed."""
+               dt_ms: int, stamp: str = "") -> int:
+    """entry -> pattern -> decision -> (next pattern) -> exit. Returns waypoints missed.
+
+    Each pattern trajectory that is uploaded is also saved next to this script as
+    search_<pattern>_<stamp>.csv (t,x,y,z, arena frame), alongside the mission log."""
     plan = arena.search
     expected = plan.expected_tags or len(arena.targets)
 
@@ -578,14 +581,20 @@ def run_search(comms, drone_id, tracker, corr: Correction, loc, arena: Arena,
         p = snap.packet
         return corr.to_arena(p.ned_x, p.ned_y, p.heading_rad)    # x, y, heading (arena frame)
 
-    def fly_smooth(points, stop_when=None) -> bool:
-        """Trajectory from the current position through `points`; the heading does not change."""
-        sx, sy, _ = arena_pose()
+    def fly_smooth(points, stop_when=None, save_as=None) -> bool:
+        """Trajectory from the current position through `points`; the heading does not change.
+        save_as: pattern name -> also write the uploaded path to search_<name>_<stamp>.csv."""
+        sx, sy, yaw = arena_pose()
         prof = smooth_trajectory([(sx, sy)] + list(points), plan.speed, dt_ms / 1000.0)
         if prof["length"] < 0.03:
             return False
         offsets = np.column_stack([prof["xy"] - prof["xy"][0], np.zeros(len(prof["xy"]))])
         log.info("  smooth path %.2f m, %.0f s, %d points", prof["length"], prof["duration"], len(offsets))
+        if save_as:
+            path = write_csv(HERE / f"search_{save_as}_{stamp or time.strftime('%Y%m%d_%H%M%S')}.csv", prof,
+                             f"pattern '{save_as}' as uploaded, start x={sx:.2f} y={sy:.2f}, "
+                             f"heading {math.degrees(yaw):.0f} deg, {time.strftime('%H:%M:%S')}")
+            log.info("  trajectory saved to %s", path.name)
         return play_trajectory(comms, drone_id, tracker, corr, offsets,
                                int(round(prof["dt"] * 1000)), stop_when=stop_when)
 
@@ -638,7 +647,7 @@ def run_search(comms, drone_id, tracker, corr: Correction, loc, arena: Arena,
                 missed += 1
             time.sleep(1.0)                     # settle before a trajectory locks its start
         if plan.mode == "trajectory":
-            fly_smooth(pts[1:], stop_when=stop)
+            fly_smooth(pts[1:], stop_when=stop, save_as=name)
         else:
             for x, y in pts[1:]:
                 if stop is not None and stop():
@@ -809,7 +818,7 @@ def main() -> int:
             return 0
 
         if args.search:
-            missed = run_search(comms, drone_id, tracker, corr, loc, arena, dt_ms)
+            missed = run_search(comms, drone_id, tracker, corr, loc, arena, dt_ms, stamp)
             log.info("LAND command sent (CMD_LAND)")
             send_command(comms, drone_id, CMD_LAND, "CMD_LAND", repeat=3)
             land_sent = True
