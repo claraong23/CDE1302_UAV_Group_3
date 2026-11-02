@@ -44,9 +44,9 @@ route:
 # At the decision: all expected targets found -> exit; otherwise the next pattern.
 search:
   area:                              # the rectangle the patterns are drawn in
-    centre: [2.70, -0.225]           # middle of the green search area (x, y)
-    length: 3.60                     # m along x (forward):  x 0.90 .. 4.50
-    width: 3.15                      # m along y (sideways): y -1.80 .. 1.35
+    centre: [2.15, -0.225]           # middle of the green search area (x, y)
+    length: 2.5                     # m along x (forward):  x 0.90 .. 4.50
+    width:  1.5                     # m along y (sideways): y -1.80 .. 1.35
   # Changing length/width keeps the centre fixed; entry and exit follow the box.
   # With the camera straight down the drone sees only ~0.45 m to each side, so at
   # width 3.15 the middle spots are at the edge of the view: red (facing +x) misses
