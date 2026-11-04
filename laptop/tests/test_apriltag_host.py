@@ -302,11 +302,11 @@ def test_firmware_constants_match_at_detect_c():
     assert (p.quad_decimate, p.quad_sigma, p.decode_sharpening,
             p.nthreads, p.refine_edges) == (1.5, 1.0, 0.75, 1, True)
     assert (apriltag_host.GATE_MAX_HAMMING, GATE_MIN_MARGIN) == (1, 55.0)
-    assert TAG_SIZE_M == 0.12
-    assert (FIRMWARE_INTRINSICS.fx, FIRMWARE_INTRINSICS.fy) == (163.5047216,
-                                                                153.22210511)
-    assert (FIRMWARE_INTRINSICS.cx, FIRMWARE_INTRINSICS.cy) == (154.00573087,
-                                                                107.10222796)
+    assert TAG_SIZE_M == 0.126
+    assert (FIRMWARE_INTRINSICS.fx, FIRMWARE_INTRINSICS.fy) == (175.57304290,
+                                                                174.59024332)
+    assert (FIRMWARE_INTRINSICS.cx, FIRMWARE_INTRINSICS.cy) == (157.15561504,
+                                                                116.21082668)
 
 
 def test_the_margin_gate_is_strictly_greater_in_c_too(detector, dictionary):

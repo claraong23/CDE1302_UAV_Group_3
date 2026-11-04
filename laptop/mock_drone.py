@@ -30,7 +30,7 @@ from protocol import (CMD_GOTO, CMD_HOLD, CMD_LAND, CMD_START, CMD_TRAJ_DATA, CM
 
 # Three of the six candidate spots in the briefing figure, a few cm off (as if placed by hand)
 TRUE_TAGS_ARENA = {3: (1.37, -1.32), 5: (4.03, -1.38), 8: (2.72, 0.93)}
-FX, FY, CX, CY, W, H = 163.5, 153.2, 154.0, 107.1, 320, 240
+FX, FY, CX, CY, W, H = 175.57, 174.59, 157.16, 116.21, 320, 240   # apriltag_host.FIRMWARE_INTRINSICS
 CAM_PITCH = math.radians(45.0)   # overridden by --pitch-deg
 CAM_POS = (0.02, 0.0, 0.0)
 ALT = 0.5

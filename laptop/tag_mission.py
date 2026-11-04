@@ -21,7 +21,7 @@ positions but not rotations: tags correct x/y, and the heading comes from PX4,
 lined up at takeoff assuming the drone faces +x. --laptop-camera detects on
 the laptop instead (full pose, but then tag_stream.py cannot run).
 
-The camera is assumed to look straight down (--cam-pitch 90) with the top of
+The camera is assumed to look forward, tilted 45 deg down (--cam-pitch 45), with the top of
 the image towards the drone's nose. Check that first with --dry-run: no
 flight, it just prints the tag-based position while you carry the drone.
 
@@ -46,7 +46,6 @@ import random
 import select
 import signal
 import socket
-import statistics
 import sys
 import threading
 import time
@@ -79,6 +78,7 @@ from protocol import (
     parse_at_debug,
 )
 from search_patterns import SearchPlan, smooth_trajectory, write_csv
+from tag_fusion import MAX_RANGE_M, Sighting, final_pose, view_angle
 from send_trajectory import UPLOAD_GAP_S, load_trajectory
 from simple_waypoint_mission import TelemetryTracker, send_command, send_goto
 
@@ -133,13 +133,16 @@ def r_body_cam(pitch_deg: float) -> np.ndarray:
 class Arena:
     def __init__(self, path: Path):
         cfg = yaml.safe_load(path.read_text())
-        self.tag_size = float(cfg.get("tag_size_m", 0.12))
+        self.tag_size = float(cfg.get("tag_size_m", 0.126))
         self.known = {}              # id -> (position (3,), tag->arena rotation)
         for tid, (x, y, yaw) in (cfg.get("known_tags") or {}).items():
             self.known[int(tid)] = (np.array([x, y, 0.0]), rot_z(math.radians(yaw)) @ FLOOR)
         self.targets = {int(t) for t in cfg.get("targets") or []}
         self.route = [(float(x), float(y)) for x, y in cfg.get("route") or []]
         self.search = SearchPlan(cfg["search"]) if cfg.get("search") else None
+        # Optional tape-measured target positions (id: [x, y]) to score the result.
+        self.truth = {int(k): (float(v[0]), float(v[1]))
+                      for k, v in (cfg.get("target_truth") or {}).items()}
         if not self.known:
             raise SystemExit(f"{path}: no known_tags")
         if self.targets & set(self.known):
@@ -237,7 +240,9 @@ class TagLocaliser:
         self.t0 = time.monotonic()
         self.frames = self.fixes = self.rejected = 0
         self.last_fix_tags: list[int] = []
-        self.sightings: dict[int, list[tuple[float, float, str]]] = {}
+        self.sightings: dict[int, list[Sighting]] = {}
+        self._prev_xy = None                    # (arena x/y, time) of the last tag fix, for speed
+        self._last_fix_xy = None                # where the last tag fix was ("odom" sightings)
         self.first_seen: dict[int, float] = {}
         self._lock = threading.Lock()
         self._stop = threading.Event()
@@ -254,21 +259,28 @@ class TagLocaliser:
         self.t0 = time.monotonic()
 
     def results(self):
-        """(id, x, y, sightings, method, first seen s) - 'tag' sightings preferred."""
+        """(id, x, y, sightings, method, first seen s). x/y = tag_fusion.final_pose
+        of the 'tag' sightings (known tag in the same picture), or of the 'odom'
+        ones if a target was never seen with a known tag."""
+        return [(tid, f["mean"][0], f["mean"][1], f["n"], method, first)
+                for tid, f, method, first in self.final_poses()]
+
+    def final_poses(self):
+        """[(id, final_pose dict, method, first seen s)] for every target seen."""
         out = []
         with self._lock:
             for tid, pts in sorted(self.sightings.items()):
-                best = [p for p in pts if p[2] == "tag"] or pts
-                out.append((tid, statistics.median(p[0] for p in best),
-                            statistics.median(p[1] for p in best),
-                            len(pts), best[0][2], self.first_seen[tid]))
+                near = [p for p in pts if p.rng <= MAX_RANGE_M] or pts
+                best = [p for p in near if p.method == "tag"] or near
+                out.append((tid, final_pose(best), best[0].method, self.first_seen[tid]))
         return out
 
     def _open_csv(self):
         f = self.csv_path.open("w", newline="")
         writer = csv.writer(f)
         writer.writerow(["wall_time", "t_since_takeoff_s", "tag_id", "x_m", "y_m",
-                         "method", "drone_x_m", "drone_y_m", "margin"])
+                         "method", "drone_x_m", "drone_y_m", "margin",
+                         "sep_m", "range_m", "view_deg", "known_in_view", "speed_ms", "heading_deg"])
         return f, writer
 
     def _run(self):
@@ -384,7 +396,7 @@ class TagLocaliser:
                 else:
                     continue
                 refs.append((p, R_ab, 1.0 / max(d.range_m, 0.1) ** 2))
-        drone_xy = None
+        drone_xy, yaw, speed, ids = None, None, 0.0, []
         if refs:
             w = np.array([r[2] for r in refs])
             w /= w.sum()
@@ -392,6 +404,10 @@ class TagLocaliser:
             yaw = math.atan2(sum(wi * math.sin(heading_of(r[1])) for wi, r in zip(w, refs)),
                              sum(wi * math.cos(heading_of(r[1])) for wi, r in zip(w, refs)))
             ids = sorted({d.id for d in dets if d.id in self.arena.known})
+            if self._prev_xy is not None and captured > self._prev_xy[1]:
+                speed = float(np.hypot(*(drone_xy - self._prev_xy[0]))) / (captured - self._prev_xy[1])
+            self._prev_xy = (drone_xy.copy(), captured)
+            self._last_fix_xy = drone_xy.copy()
             if odom is not None:
                 first = not self.corr.have_fix
                 if self.corr.update(drone_xy, yaw, odom):
@@ -415,29 +431,38 @@ class TagLocaliser:
                 w = np.array([r[2] for r in refs])
                 est = sum(wi * (r[0] + r[1] @ t_b) for wi, r in zip(w / w.sum(), refs))
                 x, y, method, dx, dy = est[0], est[1], "tag", drone_xy[0], drone_xy[1]
+                sep = min(float(np.hypot(*(est - self.arena.known[i][0])[:2])) for i in ids)
+                hdg = yaw
             elif odom is not None:                # corrected PX4 position + offset
-                dx, dy, yaw = self.corr.to_arena(*odom)
-                c, s = math.cos(yaw), math.sin(yaw)
+                dx, dy, hdg = self.corr.to_arena(*odom)
+                c, s = math.cos(hdg), math.sin(hdg)
                 x = dx + t_b[0] * c - t_b[1] * s
                 y = dy + t_b[0] * s + t_b[1] * c
                 method = "odom"
+                # PX4 drift grows with the distance flown since the last tag fix.
+                sep = (float(np.hypot(dx - self._last_fix_xy[0], dy - self._last_fix_xy[1]))
+                       if self._last_fix_xy is not None else 1.0)
             else:
                 continue
+            sight = Sighting(x=float(x), y=float(y), method=method, sep=sep, rng=float(d.range_m),
+                             ang=view_angle(d), nk=len(ids) if refs else 0, speed=speed,
+                             hdg=math.degrees(hdg))
             since = captured - self.t0
-            self._record(d.id, x, y, method, since)
+            self._record(d.id, sight, since)
             writer.writerow([time.strftime("%H:%M:%S"), f"{since:.2f}", d.id, f"{x:.3f}",
                              f"{y:.3f}", method, f"{dx:.3f}", f"{dy:.3f}",
-                             f"{d.decision_margin:.1f}"])
+                             f"{d.decision_margin:.1f}", f"{sep:.3f}", f"{d.range_m:.3f}",
+                             f"{sight.ang:.1f}", sight.nk, f"{speed:.2f}", f"{sight.hdg:.1f}"])
 
-    def _record(self, tid, x, y, method, since):
+    def _record(self, tid, sight: Sighting, since):
         with self._lock:
             new = tid not in self.sightings
-            self.sightings.setdefault(tid, []).append((x, y, method))
+            self.sightings.setdefault(tid, []).append(sight)
             if new:
                 self.first_seen[tid] = since
         if new:
             log.info("TARGET %d FOUND at x=%.2f y=%.2f m (arena frame, %s) t=%.1f s",
-                     tid, x, y, method, since)
+                     tid, sight.x, sight.y, sight.method, since)
 
 
 # ---------------------------------------------------------------------------
@@ -671,11 +696,20 @@ def run_search(comms, drone_id, tracker, corr: Correction, loc, arena: Arena,
 
 def print_results(loc: TagLocaliser, arena: Arena) -> None:
     log.info("Frames %d, tag fixes %d (%d ignored).", loc.frames, loc.fixes, loc.rejected)
-    rows = loc.results()
-    log.info("TARGETS (arena frame, median of sightings):")
-    log.info("  %-4s %-8s %-8s %-10s %-7s %s", "ID", "x (m)", "y (m)", "sightings", "method", "first seen")
-    for tid, x, y, n, method, first in rows:
-        log.info("  %-4d %-8.2f %-8.2f %-10d %-7s t=%.1fs", tid, x, y, n, method, first)
+    rows = loc.final_poses()
+    log.info("FINAL TARGET POSES (arena frame; median -> drop outliers -> weighted mean, see tag_fusion.py):")
+    for tid, f, method, first in rows:
+        (x, y), (mx, my) = f["mean"], f["med"]
+        log.info("  tag %d: x %+.3f y %+.3f m  (median %+.3f, %+.3f)  method %s, first seen t=%.1fs",
+                 tid, x, y, mx, my, method, first)
+        log.info("     %d/%d sightings kept (outlier cut %.0f cm), %d heading(s), median %.2f m from a known tag",
+                 f["kept"], f["n"], f["thr"] * 100, f["views"], f["sep"])
+        log.info("     uncertainty ~%.1f cm -> %s", f["unc"] * 100,
+                 "CONFIRMED" if f["confirmed"] else "unconfirmed (needs more sightings / headings)")
+        if tid in arena.truth:
+            tx, ty = arena.truth[tid]
+            log.info("     vs truth (%+.3f, %+.3f): error %.1f cm (fwd/back %+.1f, left/right %+.1f)",
+                     tx, ty, math.hypot(x - tx, y - ty) * 100, (x - tx) * 100, (y - ty) * 100)
     missing = sorted(arena.targets - {r[0] for r in rows})
     if missing:
         log.info("  not found: %s", missing)
@@ -685,7 +719,7 @@ def main() -> int:
     ap = argparse.ArgumentParser(description="Tag-localised takeoff -> route -> land mission")
     ap.add_argument("--drone-id", type=int, required=True, help="Flashed ESP32 CONFIG_DRONE_ID.")
     ap.add_argument("--arena", default=str(HERE / "tag_arena.yaml"), help="Tag layout and route.")
-    ap.add_argument("--cam-pitch", type=float, default=90.0,
+    ap.add_argument("--cam-pitch", type=float, default=45.0,
                     help="Camera tilt below horizontal, deg (90 = straight down).")
     ap.add_argument("--dry-run", action="store_true",
                     help="No flight: print the tag-based position (carry the drone by hand).")

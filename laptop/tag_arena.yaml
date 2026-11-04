@@ -8,7 +8,7 @@
 # The camera looks straight down and sees only about 1.0 m x 0.8 m at 0.5 m
 # height, so the route must pass OVER each landmark or it will never be seen.
 
-tag_size_m: 0.12
+tag_size_m: 0.126          # black square edge, metres
 
 known_tags:          # id: [x, y, yaw_deg]   <-- MEASURE these with a tape
   1: [0.00,  0.00, 0]     # origin, pad centre

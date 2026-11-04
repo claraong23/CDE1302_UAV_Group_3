@@ -72,9 +72,10 @@ class Intrinsics:
 
 
 FIRMWARE_PARAMS = DetectorParams()          # at_detect.c sets exactly these
-FIRMWARE_INTRINSICS = Intrinsics(fx=163.5047216, fy=153.22210511,
-                                 cx=154.00573087, cy=107.10222796)
-TAG_SIZE_M = 0.12                           # TAG_SIZE in at_detect.c
+# Checkerboard calibration, 4 Nov 2026 (F_X..C_Y in at_detect.c)
+FIRMWARE_INTRINSICS = Intrinsics(fx=175.57304290, fy=174.59024332,
+                                 cx=157.15561504, cy=116.21082668)
+TAG_SIZE_M = 0.126                          # TAG_SIZE in at_detect.c (black square)
 
 # Quality gate: `det->hamming <= 1 && det->decision_margin > 55.0`
 GATE_MAX_HAMMING = 1

@@ -230,13 +230,14 @@ int avg_img(image_u8_t* im) {
   sum /= len;
   return sum;
 }
-// ESP32 Cam Parameters!
-// Tag Size in meters?
-#define TAG_SIZE 0.12
-#define F_X 163.5047216
-#define F_Y 153.22210511
-#define C_X 154.00573087
-#define C_Y 107.10222796
+// Camera parameters (320x240). Checkerboard calibration of a XIAO ESP32-S3 Sense
+// OV2640, 4 Nov 2026 (0.15 px fit). Keep in sync with laptop/apriltag_host.py.
+// TAG_SIZE = edge of the tag's BLACK square, metres.
+#define TAG_SIZE 0.126
+#define F_X 175.57304290
+#define F_Y 174.59024332
+#define C_X 157.15561504
+#define C_Y 116.21082668
 
 void at_detect_task(void* pvParams)
 {

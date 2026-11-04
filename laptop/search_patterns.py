@@ -283,7 +283,7 @@ def write_csv(path, prof, note=""):
 # Preview helpers
 # ---------------------------------------------------------------------------
 def camera_coverage(xy, dt, spots, pitch_deg=90.0, altitude=0.5, heading_deg=0.0,
-                    fx=163.5047216, fy=153.22210511, cx=154.00573087, cy=107.10222796,
+                    fx=175.57304290, fy=174.59024332, cx=157.15561504, cy=116.21082668,
                     width=320, height=240, margin_px=15, cam_pos=(0.02, 0.0, 0.0), max_range=2.0):
     """Seconds each floor spot is fully inside the image, flying with a fixed heading
     (arena frame, 0 = facing +x)."""
