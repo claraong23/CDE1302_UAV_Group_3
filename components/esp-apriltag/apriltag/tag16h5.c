@@ -28,10 +28,10 @@ either expressed or implied, of the Regents of The University of Michigan.
 #include <stdlib.h>
 #include "tag16h5.h"
 
-/* Truncated family: only the IDs this project uses (0-11 landing tags,
-   12-21 nav tags, see laptop/setup.yaml).  ncodes below is derived from this
+/* Truncated tag16h5 family: IDs 0-23 (CDE1302: targets 0-15, known tags 20-23).
+   ncodes below is derived from this
    array — a mismatch reads past the end and makes IDs undetectable. */
-static uint64_t codedata[22] = {
+static uint64_t codedata[24] = {
    0x00000000000027c8UL,
    0x00000000000031b6UL,
    0x0000000000003859UL,
@@ -54,8 +54,8 @@ static uint64_t codedata[22] = {
    0x00000000000051ecUL,
    0x000000000000e6f0UL,
    0x0000000000005fa4UL,
-   // 0x000000000000dd43UL,
-   // 0x0000000000001aaaUL,
+   0x000000000000dd43UL,
+   0x0000000000001aaaUL,
    // 0x000000000000e62fUL,
    // 0x0000000000006dbcUL,
    // 0x000000000000b6ebUL,

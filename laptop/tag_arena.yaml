@@ -8,15 +8,15 @@
 # The camera looks straight down and sees only about 1.0 m x 0.8 m at 0.5 m
 # height, so the route must pass OVER each landmark or it will never be seen.
 
-tag_size_m: 0.126          # black square edge, metres
+tag_size_m: 0.114          # black square edge, metres
 
-known_tags:          # id: [x, y, yaw_deg]   <-- MEASURE these with a tape
-  1: [0.00,  0.00, 0]     # origin, pad centre
-  2: [0.65, -1.35, 0]     # start of the first row
-  8: [4.75, -1.35, 0]     # end of the first row
-  9: [0.65,  0.90, 0]     # end of the second row
+known_tags:          # id: [x, y, yaw_deg]  metres from the start (0, 0); x forward, y right (left = -)
+  20: [0.15,  0.00, 0]    # 15 cm in front of the start
+  21: [1.00,  0.00, 0]    # 1 m forward
+  23: [1.00, -1.00, 0]    # 1 m forward, 1 m left
+  22: [2.00,  0.50, 0]    # 2 m forward, 50 cm right
 
-targets: [4, 5, 6, 7]
+targets: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]   # look for any tag id 0-15
 
 # Waypoints (x, y) flown after takeoff, in order. The drone lands at the last one.
 # U path over the six possible target spots (x = 1.35, 2.70, 4.05 on
@@ -86,4 +86,12 @@ search:
     - [1.35,  0.90]
     - [2.70,  0.90]
     - [4.05,  0.90]
-  camera: {pitch_deg: 90, altitude: 0.5}   # preview only; match --cam-pitch
+  camera: {pitch_deg: 60, altitude: 0.5}   # preview only; match --cam-pitch
+
+# Tape-measured target positions (6 Nov 2026), metres from the start X.
+# tag_mission.py prints each target's error against these in its final report.
+target_truth:          # id: [x, y]
+  4: [1.40, -0.30]
+  5: [1.40,  0.69]
+  6: [2.73, -0.46]
+  7: [2.60,  0.68]

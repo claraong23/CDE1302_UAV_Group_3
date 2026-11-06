@@ -154,7 +154,7 @@ def test_windows_refuses_visual_studio_cl(monkeypatch):
 # ---------------------------------------------------------------------------
 
 def test_family_ncodes_matches_the_code_table(detector):
-    assert detector.ncodes == EXPECTED_NCODES == 22
+    assert detector.ncodes == EXPECTED_NCODES == 24
 
 
 @pytest.mark.parametrize("tag_id", [0, 1, 5, 11, 12, 19])
@@ -171,7 +171,15 @@ def test_nav_tags_20_and_21_decode(detector, dictionary, tag_id):
     assert [d.id for d in dets] == [tag_id]
 
 
-@pytest.mark.parametrize("tag_id", [22, 25, 29])
+@pytest.mark.parametrize("tag_id", [22, 23])
+def test_known_tags_22_and_23_decode(detector, dictionary, tag_id):
+    """IDs 0-23 are in the table (Nov 2026: known tags 20-23)."""
+    dets = detector.detect(render(dictionary, tag_id))
+    assert [d.id for d in dets] == [tag_id]
+    assert dets[0].hamming == 0
+
+
+@pytest.mark.parametrize("tag_id", [24, 25, 29])
 def test_ids_outside_the_truncated_table_are_not_detected(detector, dictionary,
                                                           tag_id):
     assert detector.detect(render(dictionary, tag_id)) == []
@@ -302,11 +310,11 @@ def test_firmware_constants_match_at_detect_c():
     assert (p.quad_decimate, p.quad_sigma, p.decode_sharpening,
             p.nthreads, p.refine_edges) == (1.5, 1.0, 0.75, 1, True)
     assert (apriltag_host.GATE_MAX_HAMMING, GATE_MIN_MARGIN) == (1, 55.0)
-    assert TAG_SIZE_M == 0.126
-    assert (FIRMWARE_INTRINSICS.fx, FIRMWARE_INTRINSICS.fy) == (175.57304290,
-                                                                174.59024332)
-    assert (FIRMWARE_INTRINSICS.cx, FIRMWARE_INTRINSICS.cy) == (157.15561504,
-                                                                116.21082668)
+    assert TAG_SIZE_M == 0.114
+    assert (FIRMWARE_INTRINSICS.fx, FIRMWARE_INTRINSICS.fy) == (188.89867683,
+                                                                188.24127756)
+    assert (FIRMWARE_INTRINSICS.cx, FIRMWARE_INTRINSICS.cy) == (160.52414033,
+                                                                118.12695491)
 
 
 def test_the_margin_gate_is_strictly_greater_in_c_too(detector, dictionary):

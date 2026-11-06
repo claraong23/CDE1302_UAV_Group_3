@@ -44,7 +44,7 @@ class _Poses:
         return (0.0, 0.0, 0.0)
 
 
-def test_localiser_places_target_from_drone_detections(tmp_path):
+def test_localiser_places_target_from_drone_detections(tmp_path, caplog):
     """Drone mode (no tag rotation): XIAO 0.3 m behind tag 2, facing +x."""
     arena_file = tmp_path / "arena.yaml"
     arena_file.write_text("tag_size_m: 0.126\nknown_tags:\n  2: [0.0, 0.0, 0]\n"
@@ -62,6 +62,7 @@ def test_localiser_places_target_from_drone_detections(tmp_path):
         return types.SimpleNamespace(id=tid, t=tuple(t_cam), R=None,
                                      range_m=float(np.linalg.norm(t_cam)), decision_margin=80.0)
 
+    caplog.set_level("INFO", logger="tag_mission")
     buf = io.StringIO()
     writer = csv.writer(buf)
     for i in range(8):
@@ -69,5 +70,10 @@ def test_localiser_places_target_from_drone_detections(tmp_path):
     (tid, f, method, _), = loc.final_poses()
     assert (tid, method, f["n"]) == (10, "tag", 8)
     assert f["mean"] == pytest.approx([0.30, -0.30], abs=1e-6)
-    assert len(buf.getvalue().splitlines()[0].split(",")) == 15
-    tm.print_results(loc, arena)                     # must not raise
+    row = buf.getvalue().splitlines()[0].split(",")
+    assert len(row) == 17 and row[-2] == "2"         # known tags in the picture, then off_centre
+    assert f["how"]["by_known"] == {2: 8}
+    assert loc.known_summary()[2][0] == 8
+    tm.print_results(loc, arena)
+    assert "KNOWN TAG 2 seen" in caplog.text
+    assert "method TAG: placed relative to known tag(s) in the same picture: 2 (8)" in caplog.text

@@ -1,0 +1,30 @@
+11:52:40.850 | INFO | Nav-tag map set (0 tags, 0 drones configured)
+11:52:40.853 | INFO | CommsNode listening on UDP port 5005
+11:52:40.854 | INFO | Waiting for telemetry from drone 3...
+11:52:40.936 | INFO | Drone 3 first contact — sent nav tags
+11:52:40.937 | INFO | Tags from drone's own detections (UDP 5008): tag_stream.py may run. Known tags [20, 21, 22, 23], targets [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15], camera pitch 45 deg.
+11:52:45.116 | INFO | TAKEOFF command sent (CMD_START)
+11:52:45.117 | INFO | CMD_START sent to drone 3.
+11:52:58.399 | INFO | Tag 20 registered to drone 3
+11:52:58.400 | INFO | KNOWN TAG 20 seen at t=12.4 s (range 0.25 m) - reference at x=0.15 y=0.00
+11:52:58.401 | INFO | First tag fix from tag(s) [20]: drone at x=-0.03 y=0.10 heading 0 deg
+11:52:58.526 | INFO | Centring over the start point (0, 0) using the tags...
+11:52:58.728 | INFO |   at x=0.03 y=-0.06  goal x=0.00 y=0.00  dist 0.07 m  (last tag fix 0.3 s ago)
+11:53:01.712 | WARNING | Trajectory not started (attempt 1, see ESP log)
+11:53:03.698 | WARNING | Trajectory not started (attempt 2, see ESP log)
+11:53:04.669 | INFO | KNOWN TAG 21 seen at t=19.0 s (range 1.16 m) - reference at x=1.00 y=0.00
+11:53:05.701 | WARNING | Trajectory not started (attempt 3, see ESP log)
+11:53:07.691 | WARNING | Trajectory not started (attempt 4, see ESP log)
+11:53:09.678 | WARNING | Trajectory not started (attempt 5, see ESP log)
+11:53:09.680 | ERROR | Mission aborted: drone refused the trajectory
+11:53:09.680 | INFO | LAND command sent (fallback CMD_LAND)
+11:53:09.983 | INFO | fallback CMD_LAND sent to drone 3.
+11:53:10.099 | INFO | Frames 54, tag fixes 12 (0 ignored).
+11:53:10.099 | INFO | KNOWN TAGS (reference tags used to correct the drone's position):
+11:53:10.100 | INFO |   tag 20 at (+0.15, +0.00): seen in 11 frame(s), first t=12.4s, closest 0.25 m
+11:53:10.100 | INFO |   tag 21 at (+1.00, +0.00): seen in 2 frame(s), first t=19.0s, closest 1.16 m
+11:53:10.100 | INFO |   tag 22 at (+2.00, +0.50): NOT seen
+11:53:10.100 | INFO |   tag 23 at (+1.00, -1.00): NOT seen
+11:53:10.101 | INFO | FINAL TARGET POSES (arena frame; median -> drop outliers -> weighted mean, see tag_fusion.py):
+11:53:10.101 | INFO |   not found: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
+11:53:13.182 | INFO | CommsNode stopped

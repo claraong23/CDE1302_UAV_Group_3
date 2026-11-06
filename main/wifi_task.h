@@ -74,6 +74,7 @@ typedef struct __attribute__((packed)) {
 #define CMD_CAMERA_STREAM 0x07   /* keepalive: pkt, cmd, enable, max_fps, quality */
 #define CMD_TRAJ_DATA     0x08   /* pkt, cmd, id, total(u16), offset(u16), n, n × (x,y,z) f32 */
 #define CMD_TRAJ_START    0x09   /* pkt, cmd, id, dt_ms(u16) */
+#define CMD_YAW           0x0A   /* turn on the spot: goal_x = heading (rad, NED, CW from north) */
 
 /* Largest command datagram (a CMD_TRAJ_DATA chunk of 80 points is 968 B). */
 #define WIFI_CMD_BUF_SIZE 1024

@@ -9,13 +9,14 @@
 # whole tag to fit), so a tag must be within ~0.45 m of the flight path to
 # be used. See the notes per tag.
 
-tag_size_m: 0.126          # black square edge, metres
+tag_size_m: 0.114          # black square edge, metres
 
-known_tags:          # id: [x, y, yaw_deg]
-  1: [0.15,  0.00, 0]     # 0.15 m ahead of the start: seen at the start and end
-  8: [0.95,  0.00, 0]     # centre line: the path passes 0.5 m to each side -> likely not seen
-  9: [0.95, -0.90, 0]     # 0.9 m left: 0.4 m outside the ellipse -> not seen
+known_tags:          # id: [x, y, yaw_deg]  metres from the start (0, 0); x forward, y right (left = -)
+  20: [0.15,  0.00, 0]    # 15 cm in front of the start
+  21: [1.00,  0.00, 0]    # 1 m forward
+  23: [1.00, -1.00, 0]    # 1 m forward, 1 m left
+  22: [2.00,  0.50, 0]    # 2 m forward, 50 cm right
 
-targets: [4, 5, 6, 7]
+targets: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]   # look for any tag id 0-15
 
 route: []            # not used with --trajectory

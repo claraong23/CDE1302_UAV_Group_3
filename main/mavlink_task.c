@@ -645,6 +645,23 @@ void mavlink_set_hold(void)
     xSemaphoreGive(s_sp_mutex);
 }
 
+void mavlink_set_yaw_hold(float yaw)
+{
+    drone_state_t st = mavlink_get_state();
+
+    xSemaphoreTake(s_sp_mutex, portMAX_DELAY);
+    // Already holding a position (HOLD, arrived goal, previous yaw step): keep it.
+    if (s_sp.type != SP_POSITION && s_sp.type != SP_HOLD) {
+        s_sp.x = st.x;
+        s_sp.y = st.y;
+        s_sp.z = st.z;
+    }
+    s_sp.type = SP_POSITION;
+    s_sp.yaw  = yaw;
+    s_sp_update_ms = (uint32_t)(esp_timer_get_time() / 1000);
+    xSemaphoreGive(s_sp_mutex);
+}
+
 void mavlink_arm(bool arm)
 {
     send_arm_disarm(arm);

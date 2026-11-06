@@ -72,10 +72,10 @@ class Intrinsics:
 
 
 FIRMWARE_PARAMS = DetectorParams()          # at_detect.c sets exactly these
-# Checkerboard calibration, 4 Nov 2026 (F_X..C_Y in at_detect.c)
-FIRMWARE_INTRINSICS = Intrinsics(fx=175.57304290, fy=174.59024332,
-                                 cx=157.15561504, cy=116.21082668)
-TAG_SIZE_M = 0.126                          # TAG_SIZE in at_detect.c (black square)
+# Checkerboard calibration of drone 3's own camera, 6 Nov 2026 (F_X..C_Y in at_detect.c)
+FIRMWARE_INTRINSICS = Intrinsics(fx=188.89867683, fy=188.24127756,
+                                 cx=160.52414033, cy=118.12695491)
+TAG_SIZE_M = 0.114                          # TAG_SIZE in at_detect.c (black square)
 
 # Quality gate: `det->hamming <= 1 && det->decision_margin > 55.0`
 GATE_MAX_HAMMING = 1
@@ -89,8 +89,8 @@ POSE_ERR_LIMIT = 0.5
 # convention; subtract this once, where you draw or call solvePnP.
 PIXEL_CENTRE_OFFSET = 0.5
 
-# tag16h5 as this project ships it: IDs 0-21 (0-11 landing, 12-21 nav).
-EXPECTED_NCODES = 22
+# tag16h5 as this project ships it: IDs 0-23 (24-29 commented out in tag16h5.c).
+EXPECTED_NCODES = 24
 
 MAX_DETECTIONS = 32     # per frame; extras are counted, not returned
 
@@ -100,8 +100,8 @@ MAX_DETECTIONS = 32     # per frame; extras are counted, not returned
 
 # Drone (body) frame: x forward, y right, z down, origin at the drone centre.
 # Camera frame (AprilTag pose): x image right, y image down, z out of the lens.
-CAM_PITCH_DEG = 45.0                # lens looks forward, tilted 45° down
-CAM_POS_M     = (0.02, 0.0, 0.0)    # lens position in the drone frame
+CAM_PITCH_DEG = 60.0                # lens looks forward, tilted 60° down
+CAM_POS_M     = (0.08, 0.0, 0.0)    # lens position in the drone frame (measured: 8 cm forward)
 
 _P = math.radians(CAM_PITCH_DEG)
 # Columns are the camera's x, y, z axes written in the drone frame.
@@ -119,7 +119,7 @@ def camera_to_body(t: tuple[float, float, float]) -> tuple[float, float, float]:
         (forward, right, down) from the drone centre, metres.
 
     Example: a tag 1 m ahead of and 0.5 m below the lens is seen at
-    t = (0, -0.354, 1.061) and comes back as (1.02, 0.0, 0.5).
+    t = (0, -0.616, 0.933) and comes back as (1.08, 0.0, 0.5).
     """
     return tuple(sum(R_BODY_CAM[i][j] * t[j] for j in range(3)) + CAM_POS_M[i]
                  for i in range(3))

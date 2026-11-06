@@ -35,6 +35,7 @@ CMD_SET_PEERS     = 0x06   # update nearby drone positions for inter-drone avoid
 CMD_CAMERA_STREAM = 0x07   # camera preview keepalive
 CMD_TRAJ_DATA     = 0x08   # trajectory chunk upload
 CMD_TRAJ_START    = 0x09   # play the uploaded trajectory
+CMD_YAW           = 0x0A   # hold position, turn to goal_x = heading (rad, NED, CW from north)
 
 VFH_BINS    = 32
 

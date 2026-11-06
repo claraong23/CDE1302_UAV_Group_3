@@ -99,6 +99,10 @@ void mavlink_set_position_velocity_ned(float x, float y, float z,
 // Safe to call at any time; mavlink_task will use last known position.
 void mavlink_set_hold(void);
 
+// Hold position and turn to `yaw` (rad, NED, CW from north). Repeated calls keep
+// the same position, so stepping the heading round does not make the drone wander.
+void mavlink_set_yaw_hold(float yaw);
+
 // ---------------------------------------------------------------------------
 // Command API
 // ---------------------------------------------------------------------------

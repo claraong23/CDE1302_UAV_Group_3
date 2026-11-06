@@ -27,7 +27,7 @@ static const char *TAG = "wifi";
 #define WIFI_CONNECTED_BIT  BIT0
 
 /* Cruise altitude for CMD_GOTO — must match CRUISE_ALT_M in main.c */
-#define WIFI_CRUISE_ALT_M   0.5f
+#define WIFI_CRUISE_ALT_M   1.0f
 
 static volatile bool s_land_requested  = false;
 static volatile bool s_start_requested = false;
@@ -185,6 +185,15 @@ static void handle_command(const wifi_cmd_pkt_t *cmd)
     case CMD_HOLD:
         nav_cancel();
         ESP_LOGI(TAG, "CMD_HOLD");
+        break;
+    case CMD_YAW:
+        if (s_phase != MISSION_FLYING) {
+            ESP_LOGW(TAG, "CMD_YAW ignored — not flying");
+            break;
+        }
+        nav_cancel();                          /* stop any goal, hold here */
+        mavlink_set_yaw_hold(cmd->goal_x);     /* PX4 turns at its own yaw-rate limit */
+        ESP_LOGI(TAG, "CMD_YAW %.0f deg", cmd->goal_x * 180.0f / (float)M_PI);
         break;
     default:
         ESP_LOGW(TAG, "Unknown cmd type 0x%02x", cmd->cmd_type);

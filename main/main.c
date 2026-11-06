@@ -16,7 +16,7 @@ static const char *TAG = "mission";
 /* ---------------------------------------------------------------------------
  * Test parameters — adjust before flight
  * --------------------------------------------------------------------------- */
-#define CRUISE_ALT_M        0.5f    /* target altitude above takeoff (m)        */
+#define CRUISE_ALT_M        1.0f    /* target altitude above takeoff (m)        */
 #define ARM_TIMEOUT_S       10      /* give up on OFFBOARD + arm (s)            */
 #define TAKEOFF_TIMEOUT_S   10      /* max seconds to wait for altitude (s)     */
 #define LAND_TIMEOUT_S      20      /* warn if still armed after landing (s)    */

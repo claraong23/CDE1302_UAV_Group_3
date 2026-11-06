@@ -98,7 +98,7 @@ class SearchPlan:
                       "accel": 0.08, "smoothing_s": 1.2, **(cfg.get("speed") or {})}
         self.goto_speed = float(cfg.get("goto_speed", 0.10))
         self.spots = [tuple(map(float, s)) for s in cfg.get("spots") or []]
-        self.camera = {"pitch_deg": 90.0, "altitude": 0.5, **(cfg.get("camera") or {})}
+        self.camera = {"pitch_deg": 60.0, "altitude": 0.5, **(cfg.get("camera") or {})}
 
     def point(self, p):
         if isinstance(p, str):
@@ -282,7 +282,7 @@ def write_csv(path, prof, note=""):
 # ---------------------------------------------------------------------------
 # Preview helpers
 # ---------------------------------------------------------------------------
-def camera_coverage(xy, dt, spots, pitch_deg=90.0, altitude=0.5, heading_deg=0.0,
+def camera_coverage(xy, dt, spots, pitch_deg=60.0, altitude=0.5, heading_deg=0.0,
                     fx=175.57304290, fy=174.59024332, cx=157.15561504, cy=116.21082668,
                     width=320, height=240, margin_px=15, cam_pos=(0.02, 0.0, 0.0), max_range=2.0):
     """Seconds each floor spot is fully inside the image, flying with a fixed heading

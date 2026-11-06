@@ -1,0 +1,2 @@
+wall_time,t_since_takeoff_s,tag_id,x_m,y_m,method,drone_x_m,drone_y_m,margin,sep_m,range_m,view_deg,known_in_view,speed_ms,heading_deg,known_ids
+12:12:22,20.50,4,1.459,-0.145,odom,0.017,-0.012,58.7,0.112,1.500,nan,0,0.00,-0.3,

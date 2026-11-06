@@ -11,7 +11,7 @@ Ground-truth tags are given in the ARENA frame (launch point, x forward,
 y right) and converted with --heading-deg / --start-n / --start-e, so you can
 test a drone that is not at the NED origin or not facing north.
 
-    python laptop/mock_drone.py --drone-id 2          # lab defaults (45 deg camera)
+    python laptop/mock_drone.py --drone-id 2          # lab defaults (60 deg camera)
     python laptop/mock_drone.py --drone-id 3 --pitch-deg 90 \
         --tags "1:0,0;2:0.65,-1.35;8:4.75,-1.35;9:0.65,0.90;4:1.37,-1.32;5:4.03,-1.38;6:2.72,0.93"
     # then in a second terminal:
@@ -31,7 +31,7 @@ from protocol import (CMD_GOTO, CMD_HOLD, CMD_LAND, CMD_START, CMD_TRAJ_DATA, CM
 # Three of the six candidate spots in the briefing figure, a few cm off (as if placed by hand)
 TRUE_TAGS_ARENA = {3: (1.37, -1.32), 5: (4.03, -1.38), 8: (2.72, 0.93)}
 FX, FY, CX, CY, W, H = 175.57, 174.59, 157.16, 116.21, 320, 240   # apriltag_host.FIRMWARE_INTRINSICS
-CAM_PITCH = math.radians(45.0)   # overridden by --pitch-deg
+CAM_PITCH = math.radians(60.0)   # overridden by --pitch-deg
 CAM_POS = (0.02, 0.0, 0.0)
 ALT = 0.5
 SPEED, TURN = 0.4, 1.5       # CMD_GOTO cruise m/s, rotate rad/s
@@ -58,7 +58,7 @@ def main():
     ap.add_argument("--start-n", type=float, default=0.0, help="launch position north in PX4 local frame")
     ap.add_argument("--start-e", type=float, default=0.0)
     ap.add_argument("--drift", type=float, default=0.05, help="random hover drift after take-off (m)")
-    ap.add_argument("--pitch-deg", type=float, default=45.0, help="camera tilt below horizontal (90 = down)")
+    ap.add_argument("--pitch-deg", type=float, default=60.0, help="camera tilt below horizontal (90 = down)")
     ap.add_argument("--tags", help="ground-truth tags in the arena frame, e.g. '1:0,0;4:1.35,-1.35' "
                                    "(default: three targets at candidate spots)")
     ap.add_argument("--traj-bias", type=float, default=0.0,
