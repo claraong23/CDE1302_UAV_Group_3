@@ -1,44 +1,4 @@
 #!/usr/bin/env python3
-"""
-Tag-localised mission: takeoff -> fly a route in the arena frame -> land.
-
-Known floor tags (tag 1 at the pad centre plus landmarks, see tag_arena.yaml)
-give the drone's true arena position whenever one is in view. Between
-landmarks, PX4's position is used with the last correction applied, so:
-
-  * waypoints are flown in the arena frame, and corrected for PX4 drift every
-    time a landmark is seen;
-  * target tags (4-7) are placed in the arena frame: from a known tag in the
-    same picture when there is one ("tag", no drift at all), otherwise from
-    the corrected PX4 position ("odom").
-
-Writes a timestamped event log (takeoff command, each target found, land
-command) and a CSV of every target sighting next to this script.
-
-Tags come from the drone's own detector (UDP 5008) by default, so
-tag_stream.py can show the video at the same time. Those detections carry tag
-positions but not rotations: tags correct x/y, and the heading comes from PX4,
-lined up at takeoff assuming the drone faces +x. Whenever two known tags are in
-one picture (e.g. 20 and 21 at the start), the line between them corrects the
-heading too; the mission checks this at the start and end of a trajectory. --laptop-camera detects on
-the laptop instead (full pose, but then tag_stream.py cannot run).
-
-The camera is assumed to look forward, tilted 60 deg down (--cam-pitch 60), with the top of
-the image towards the drone's nose. Check that first with --dry-run: no
-flight, it just prints the tag-based position while you carry the drone.
-
-    python laptop/tag_mission.py --drone-id 3 --dry-run
-    python laptop/tag_mission.py --drone-id 3
-    python laptop/tag_mission.py --drone-id 3 --search     # search behaviour from tag_arena.yaml
-
---search flies the `search:` block of the arena file instead of the route:
-entry -> pattern (red) -> decision at the TL corner -> next pattern (blue) only
-if not every expected target has been found -> exit -> land. Patterns are
-planned in search_patterns.py; preview them without a drone with
-    python laptop/search_patterns.py --plot search_plan.png
-
-Exit code: 0 all waypoints reached, 1 error or waypoint timeout, 130 Ctrl+C.
-"""
 
 import argparse
 import csv
@@ -88,6 +48,7 @@ from simple_waypoint_mission import TelemetryTracker, send_command, send_goto
 
 log = logging.getLogger("tag_mission")
 HERE = Path(__file__).resolve().parent
+LOG_DIR = HERE / "final_run_logs"   # new run logs + sighting CSVs (older runs: logged_runs/)
 
 CAMERA_FPS = 5             # keeps Wi-Fi free for telemetry
 TAKEOFF_WAIT_S = 10.0      # CMD_START -> first waypoint
@@ -925,7 +886,7 @@ def run_search(comms, drone_id, tracker, corr: Correction, loc, arena: Arena,
                dt_ms: int, stamp: str = "") -> int:
     """entry -> pattern -> decision -> (next pattern) -> exit. Returns waypoints missed.
 
-    Each pattern trajectory that is uploaded is also saved next to this script as
+    Each pattern trajectory that is uploaded is also saved in final_run_logs/ as
     search_<pattern>_<stamp>.csv (t,x,y,z, arena frame), alongside the mission log."""
     plan = arena.search
     expected = plan.expected_tags or len(arena.targets)
@@ -959,7 +920,7 @@ def run_search(comms, drone_id, tracker, corr: Correction, loc, arena: Arena,
         offsets = np.column_stack([prof["xy"] - prof["xy"][0], np.zeros(len(prof["xy"]))])
         log.info("  smooth path %.2f m, %.0f s, %d points", prof["length"], prof["duration"], len(offsets))
         if save_as:
-            path = write_csv(HERE / f"search_{save_as}_{stamp or time.strftime('%Y%m%d_%H%M%S')}.csv", prof,
+            path = write_csv(LOG_DIR / f"search_{save_as}_{stamp or time.strftime('%Y%m%d_%H%M%S')}.csv", prof,
                              f"pattern '{save_as}' as uploaded, start x={sx:.2f} y={sy:.2f}, "
                              f"heading {math.degrees(yaw):.0f} deg, {time.strftime('%H:%M:%S')}")
             log.info("  trajectory saved to %s", path.name)
@@ -1184,8 +1145,9 @@ def main() -> int:
     root = logging.getLogger()
     for h in root.handlers:
         h.setFormatter(fmt)
+    LOG_DIR.mkdir(exist_ok=True)
     if not args.dry_run:
-        fh = logging.FileHandler(HERE / f"tag_mission_{stamp}.log")
+        fh = logging.FileHandler(LOG_DIR / f"tag_mission_{stamp}.log")
         fh.setFormatter(fmt)
         root.addHandler(fh)
 
@@ -1225,7 +1187,7 @@ def main() -> int:
         corr.assume_start(snap.packet.ned_x, snap.packet.ned_y, snap.packet.heading_rad)
         esp_ip = comms.known_drones()[drone_id]
         loc = TagLocaliser(esp_ip, drone_id, arena, poses, corr, detector,
-                           r_body_cam(args.cam_pitch), HERE / f"tag_sightings_{stamp}.csv")
+                           r_body_cam(args.cam_pitch), LOG_DIR / f"tag_sightings_{stamp}.csv")
         loc.start()
         source = ("laptop camera stream (UDP 5009): do not run tag_stream.py"
                   if detector else "drone's own detections (UDP 5008): tag_stream.py may run")
