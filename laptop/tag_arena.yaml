@@ -11,12 +11,14 @@
 tag_size_m: 0.114          # black square edge, metres
 
 known_tags:          # id: [x, y, yaw_deg]  metres from the start (0, 0); x forward, y right (left = -)
-  20: [0.15,  0.00, 0]    # 15 cm in front of the start
-  21: [1.00,  0.00, 0]    # 1 m forward
-  23: [1.00, -1.00, 0]    # 1 m forward, 1 m left
-  22: [2.00,  0.50, 0]    # 2 m forward, 50 cm right
+  15: [0.910,  0.000, 0]    # 91 cm forward
+  16: [1.910,  0.000, 0]    # 191 cm forward
+  17: [1.910,  0.915, 0]    # 191 cm forward, 91.5 cm right
+  18: [3.190, -1.370, 0]    # 319 cm forward, 137 cm left
+  19: [1.910, -1.370, 0]    # 191 cm forward, 137 cm left
+  20: [3.190,  0.915, 0]    # 319 cm forward, 91.5 cm right
 
-targets: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]   # look for any tag id 0-15
+targets: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14]   # look for any tag id 0-14 (only a few are placed)
 
 # Waypoints (x, y) flown after takeoff, in order. The drone lands at the last one.
 # U path over the six possible target spots (x = 1.35, 2.70, 4.05 on

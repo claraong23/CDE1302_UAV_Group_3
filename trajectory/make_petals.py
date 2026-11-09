@@ -1,28 +1,31 @@
 #!/usr/bin/env python3
-r"""Two-petal trajectory: up a stem, a loop to the left, a loop to the right, back down.
+r"""Two-petal search path traced from a hand sketch (9 Nov 2026), over the cover rectangle.
 
-Shape traced from a hand sketch (Nov 2026). Seen from above, x forward, y right:
+Seen from above (x forward = up, y right = right), [ ] = the cover rectangle:
 
-            _          _
-          /   \      /   \
-         |  L  |    |  R  |        L: up the inner edge, over the top to the left,
-          \     \  /     /            down the outside, back in along the bottom.
-            `----J----'            R: the mirror image, on the right.
-                 |
-                 |  stem
-                 X  start / land (0, 0)
+         .--.    .--.
+        /    \  /    \         1. up a stem left of centre, through the rectangle
+       |   .--\/--.   |        2. right petal: over the top, down the right side,
+     [ |  /   /\   \  | ]          back left along the near part of the rectangle
+     [ |  |  |  |  |  | ]       3. left petal: up the left side, over the top-left,
+     [  \  \ |  | /  /  ]          then down the middle
+     [   `--+-|--+-'   ]       4. out of the rectangle back to the start
+            |  |
+            S  E   start / land at (0, 0)
+
+The sketch is stored in rectangle units (u = 0 at the path's left side .. 1 at its
+right side, v = 0 at the near edge .. 1 at the far edge, above 1 = past the far
+edge) and mapped onto --near/--far/--top/--left/--right in metres.
 
 Writes t,x,y,z (s, m; x forward, y right, z 0) for tag_mission.py --trajectory.
 The drone keeps its takeoff heading the whole way (trajectory mode), so the
 60 deg camera always looks forward (+x).
 
-    python trajectory/make_petals.py                              # 2.0 x 2.0 m, stem 0.5 m
-    python trajectory/make_petals.py --length 2.0 --width 2.0 --stem 0.5 --plot
-    python trajectory/make_petals.py --plot --arena laptop/tag_arena.yaml   # show the known tags
+    python trajectory/make_petals.py --plot
+    python trajectory/make_petals.py --near 1.4 --far 4.1 --top 4.6 --left -1.4 --right 0.93 --plot
 
 Then fly it (no --traj-rotate needed, it already points +x):
-    python laptop/tag_mission.py --drone-id 3 --arena laptop/tag_arena.yaml \
-        --trajectory trajectory/petals_traj.csv --cam-pitch 60 --confirm
+    python laptop/tag_mission.py --drone-id 3 --trajectory trajectory/petals_traj.csv --takeoff-wait 16 --confirm
 """
 import argparse
 import math
@@ -40,25 +43,34 @@ CRUISE_MS = 0.295     # on the straighter parts (just under the 0.30 m/s lab lim
 ACCEL_MS2 = 0.08      # speeding up / slowing down along the path
 LATERAL_MS2 = 0.04    # sideways acceleration allowed in bends (slows down on tight curves)
 
-# Left petal traced from the sketch, in petal units:
-#   a = 0 at the junction J .. 1 at the top of the petal (forward),
-#   b = 0 on the stem line .. -1 at the petal's far left edge.
-# Order: up the inner edge, over the top to the left, down the outside, back to J.
-LEFT_PETAL = [
-    (0.00, 0.00), (0.25, 0.00), (0.48, -0.05), (0.69, -0.16), (0.84, -0.31),
-    (0.95, -0.51), (1.00, -0.71), (0.95, -0.85), (0.78, -0.93), (0.56, -1.00),
-    (0.33, -0.98), (0.16, -0.81), (0.04, -0.51), (0.00, -0.16), (0.00, 0.00),
+# Path traced from the sketch, in order, as (u, v): u 0 = path's left side .. 1 = right
+# side; v 0 = near edge of the rectangle .. 1 = far edge (> 1 past it). Start and end
+# are added at (0, 0) in metres. ("m", x, y) is a fixed point in metres (e.g. a tag
+# to fly over) that does not move with --near/--left/... .
+SKETCH = [
+    # 1. stem up, left of centre
+    (0.34, 0.11), (0.31, 0.43), (0.36, 0.69), (0.44, 0.96), (0.55, 1.19), (0.63, 1.30),
+    # 2. right petal: over the top, down the right side, back along the near part
+    (0.79, 1.34), (0.96, 1.30), (1.00, 1.19), (1.00, 0.81), (1.00, 0.49),
+    ("m", 1.91, 0.915),                              # right over tag 17 (metres)
+    (0.78, 0.04), (0.50, 0.00), (0.24, 0.05),        # dips to the near edge (v = 0)
+    # 3. left petal: up the left side, over the top-left, down the middle
+    ("m", 1.91, -1.37),                              # right over tag 19 (metres)
+    (0.00, 0.47),
+    (0.00, 0.85), (0.01, 1.12), (0.07, 1.34), (0.17, 1.42),
+    (0.29, 1.40), (0.42, 1.30), (0.53, 1.12), (0.61, 0.89), (0.66, 0.63), (0.71, 0.34),
+    (0.70, 0.02),
 ]
+V_TOP = max(p[1] for p in SKETCH if p[0] != "m")
 
 
-def control_points(length: float, width: float, stem: float):
+def control_points(near: float, far: float, top: float, left: float, right: float):
     """Points through which the path passes, in metres (x forward, y right)."""
-    petal_len, half_w = length - stem, width / 2
-    left = [(stem + a * petal_len, b * half_w) for a, b in LEFT_PETAL]
-    right = [(x, -y) for x, y in left]                   # mirror image
-    up = [(0.0, 0.0), (stem / 2, 0.0)]
-    down = [(stem / 2, 0.0), (0.0, 0.0)]
-    return up + left + right[1:] + down
+    def to_m(u, v):
+        x = near + v * (far - near) if v <= 1 else far + (v - 1) / (V_TOP - 1) * (top - far)
+        return (x, left + u * (right - left))
+    pts = [(p[1], p[2]) if p[0] == "m" else to_m(*p) for p in SKETCH]
+    return [(0.0, 0.0)] + pts + [(0.0, 0.0)]
 
 
 def catmull_rom(pts, per_seg: int = 60):
@@ -138,20 +150,23 @@ def write_csv(path: Path, prof, note: str):
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--length", type=float, default=2.0, help="m forward, from the start X to the petal tops")
-    ap.add_argument("--width", type=float, default=2.0, help="m side to side, across both petals (centred)")
-    ap.add_argument("--stem", type=float, default=0.5, help="m forward from the start X to where the petals meet")
+    ap.add_argument("--near", type=float, default=1.40, help="m forward: near edge of the cover rectangle")
+    ap.add_argument("--far", type=float, default=4.10, help="m forward: far edge of the cover rectangle")
+    ap.add_argument("--top", type=float, default=4.60, help="m forward: tops of the petals (past --far)")
+    ap.add_argument("--left", type=float, default=-1.40, help="m: path's left side (left = negative)")
+    ap.add_argument("--right", type=float, default=0.93, help="m: path's right side")
     ap.add_argument("--dt", type=float, default=0.1, help="sample period (s); 0.1 keeps the upload small")
     ap.add_argument("--out", type=Path, default=HERE / "petals_traj.csv")
     ap.add_argument("--plot", action="store_true", help="also save a PNG next to the CSV")
     ap.add_argument("--arena", type=Path, default=None, help="arena yaml: draw its known tags on the plot")
     args = ap.parse_args()
-    if not 0 <= args.stem < args.length:
-        raise SystemExit("--stem must be between 0 and --length")
+    if not 0 < args.near < args.far < args.top or not args.left < 0 < args.right:
+        raise SystemExit("need 0 < --near < --far < --top and --left < 0 < --right")
 
-    ctrl = control_points(args.length, args.width, args.stem)
+    ctrl = control_points(args.near, args.far, args.top, args.left, args.right)
     prof = time_path(catmull_rom(ctrl), args.dt)
-    note = f"petals {args.length} m long x {args.width} m wide, stem {args.stem} m"
+    note = (f"petals over x {args.near}..{args.far} (tops {args.top}), "
+            f"y {args.left}..{args.right} m, from the 9 Nov sketch")
     write_csv(args.out, prof, note)
     xy = prof["xy"]
     print(f"{args.out.name}: {prof['length']:.2f} m, {prof['duration']:.0f} s, max {prof['max_speed']:.2f} m/s, "
@@ -177,7 +192,10 @@ def main():
             ax.plot([], [], "s", color="black", label="known tags")
         ax.set_xlabel("y right (m)")
         ax.set_ylabel("x forward (m)")
-        ax.set_title(f"Petals {args.length} x {args.width} m, stem {args.stem} m, ~{prof['duration']:.0f} s")
+        ax.plot([args.left, args.right, args.right, args.left, args.left],
+                [args.near, args.near, args.far, args.far, args.near], ":", color="grey", label="cover rectangle")
+        ax.set_title(f"Petals over x {args.near}..{args.far} m, y {args.left}..{args.right} m, "
+                     f"~{prof['duration']:.0f} s")
         ax.set_aspect("equal")
         ax.grid(alpha=0.3)
         ax.legend(loc="lower right", fontsize=8)

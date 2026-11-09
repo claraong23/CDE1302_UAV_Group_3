@@ -1,0 +1,149 @@
+12:47:52.826 | INFO | Nav-tag map set (0 tags, 0 drones configured)
+12:47:52.830 | INFO | CommsNode listening on UDP port 5005
+12:47:52.830 | INFO | Waiting for telemetry from drone 3...
+12:47:52.897 | INFO | Drone 3 first contact — sent nav tags
+12:47:52.898 | INFO | Tags from drone's own detections (UDP 5008): tag_stream.py may run. Known tags [15, 16, 17, 18, 19, 20], targets [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14], camera pitch 60 deg.
+12:48:20.087 | INFO | TAKEOFF command sent (CMD_START)
+12:48:20.088 | INFO | CMD_START sent to drone 3.
+12:48:35.383 | INFO | Tag 15 registered to drone 3
+12:48:35.384 | INFO | KNOWN TAG 15 seen at t=14.5 s (range 1.15 m) - reference at x=0.91 y=0.00
+12:48:35.385 | INFO | First tag fix from tag(s) [15]: drone at x=-0.16 y=0.10 heading -0 deg
+12:48:37.173 | WARNING | Trajectory not started (attempt 1, see ESP log)
+12:48:38.847 | WARNING | Trajectory not started (attempt 2, see ESP log)
+12:48:39.107 | INFO | Trajectory started from arena x=-0.15 y=0.03 (40.6 s)
+12:48:39.107 | INFO |   at x=-0.06 y=0.22  (last tag fix 0.2 s ago)
+12:48:40.110 | INFO |   at x=-0.07 y=0.13  (last tag fix 0.4 s ago)
+12:48:41.116 | INFO |   at x=-0.06 y=-0.15  (last tag fix 0.5 s ago)
+12:48:42.119 | INFO |   at x=0.08 y=-0.52  (last tag fix 0.0 s ago)
+12:48:43.122 | INFO |   at x=0.30 y=-0.64  (last tag fix 0.1 s ago)
+12:48:43.980 | INFO | Heading check from known tags 15+16: heading was off by +3.8 deg
+12:48:43.982 | INFO | KNOWN TAG 16 seen at t=22.9 s (range 1.83 m) - reference at x=1.91 y=0.00
+12:48:44.150 | INFO |   at x=0.60 y=-0.73  (last tag fix 0.2 s ago)
+12:48:45.152 | INFO |   at x=0.91 y=-0.87  (last tag fix 0.1 s ago)
+12:48:45.884 | INFO | KNOWN TAG 19 seen at t=25.0 s (range 1.46 m) - reference at x=1.91 y=-1.37
+12:48:45.888 | INFO | TARGET 12 FOUND at x=2.35 y=-0.66 m (arena frame, from known tag(s) 19) t=25.0 s
+12:48:46.155 | INFO |   at x=1.16 y=-0.99  (last tag fix 0.3 s ago)
+12:48:47.159 | INFO |   at x=1.40 y=-0.95  (last tag fix 0.2 s ago)
+12:48:48.163 | INFO |   at x=1.66 y=-0.94  (last tag fix 0.4 s ago)
+12:48:48.985 | INFO | TARGET 3 FOUND at x=2.79 y=-1.42 m (arena frame, from known tag(s) 19) t=27.8 s
+12:48:49.166 | INFO |   at x=1.91 y=-0.98  (last tag fix 0.2 s ago)
+12:48:50.170 | INFO |   at x=2.21 y=-0.97  (last tag fix 1.2 s ago)
+12:48:50.377 | INFO | KNOWN TAG 18 seen at t=28.9 s (range 1.61 m) - reference at x=3.19 y=-1.37
+12:48:50.382 | INFO | TARGET 2 FOUND at x=3.32 y=-0.13 m (arena frame, from known tag(s) 18) t=28.9 s
+12:48:51.182 | INFO |   at x=2.52 y=-0.95  (last tag fix 0.8 s ago)
+12:48:52.188 | INFO |   at x=2.86 y=-0.91  (last tag fix 0.6 s ago)
+12:48:53.192 | INFO |   at x=3.14 y=-0.82  (last tag fix 0.6 s ago)
+12:48:54.194 | INFO |   at x=3.26 y=-0.64  (last tag fix 0.1 s ago)
+12:48:55.197 | INFO |   at x=3.50 y=-0.53  (last tag fix 1.1 s ago)
+12:48:56.199 | INFO |   at x=3.75 y=-0.40  (last tag fix 2.1 s ago)
+12:48:57.202 | INFO |   at x=3.98 y=-0.19  (last tag fix 3.1 s ago)
+12:48:58.204 | INFO |   at x=4.19 y=0.08  (last tag fix 4.1 s ago)
+12:48:59.207 | INFO |   at x=4.32 y=0.36  (last tag fix 5.1 s ago)
+12:49:00.209 | INFO |   at x=4.37 y=0.64  (last tag fix 6.1 s ago)
+12:49:01.212 | INFO |   at x=4.31 y=0.92  (last tag fix 7.1 s ago)
+12:49:01.681 | INFO | TARGET 5 FOUND at x=4.39 y=1.07 m (arena frame, from PX4 position (no known tag in view)) t=41.2 s
+12:49:02.215 | INFO |   at x=4.16 y=1.18  (last tag fix 8.1 s ago)
+12:49:03.218 | INFO |   at x=4.00 y=1.35  (last tag fix 9.1 s ago)
+12:49:04.222 | INFO |   at x=3.73 y=1.52  (last tag fix 10.1 s ago)
+12:49:05.225 | INFO |   at x=3.42 y=1.76  (last tag fix 11.1 s ago)
+12:49:06.084 | INFO | KNOWN TAG 20 seen at t=45.5 s (range 1.15 m) - reference at x=3.19 y=0.92
+12:49:06.228 | INFO |   at x=2.98 y=1.76  (last tag fix 0.1 s ago)
+12:49:07.237 | INFO |   at x=2.59 y=1.62  (last tag fix 0.0 s ago)
+12:49:07.893 | INFO | TARGET 13 FOUND at x=2.76 y=0.87 m (arena frame, from known tag(s) 20) t=47.1 s
+12:49:08.239 | INFO |   at x=2.32 y=1.63  (last tag fix 0.3 s ago)
+12:49:09.242 | INFO |   at x=2.08 y=1.62  (last tag fix 0.5 s ago)
+12:49:10.245 | INFO |   at x=1.71 y=1.60  (last tag fix 0.7 s ago)
+12:49:11.191 | INFO | KNOWN TAG 17 seen at t=50.3 s (range 1.28 m) - reference at x=1.91 y=0.92
+12:49:11.247 | INFO |   at x=1.48 y=1.56  (last tag fix 0.1 s ago)
+12:49:12.250 | INFO |   at x=1.18 y=1.53  (last tag fix 0.4 s ago)
+12:49:13.253 | INFO |   at x=0.93 y=1.48  (last tag fix 0.3 s ago)
+12:49:14.255 | INFO |   at x=0.73 y=1.36  (last tag fix 0.5 s ago)
+12:49:15.264 | INFO |   at x=0.43 y=1.13  (last tag fix 0.4 s ago)
+12:49:16.267 | INFO |   at x=0.26 y=1.00  (last tag fix 0.7 s ago)
+12:49:17.271 | INFO |   at x=0.05 y=0.81  (last tag fix 1.7 s ago)
+12:49:18.276 | INFO |   at x=-0.11 y=0.58  (last tag fix 0.2 s ago)
+12:49:19.287 | INFO |   at x=-0.25 y=0.31  (last tag fix 1.2 s ago)
+12:49:19.894 | INFO | Trajectory ended at arena x=-0.35 y=-0.01; planned end x=-0.15 y=0.04 (off by 0.21 m)
+12:49:19.895 | INFO | Returning to the start point (0, 0) using the tags before landing...
+12:49:20.906 | INFO |   return 1: from x=-0.30 y=-0.08, 0.31 m in 6 s
+12:49:20.986 | INFO | Trajectory started from arena x=-0.30 y=-0.08 (6.2 s)
+12:49:20.988 | INFO |   at x=-0.30 y=-0.08  (last tag fix 0.2 s ago)
+12:49:21.994 | INFO |   at x=-0.26 y=0.05  (last tag fix 0.4 s ago)
+12:49:22.996 | INFO |   at x=-0.23 y=0.11  (last tag fix 0.6 s ago)
+12:49:23.999 | INFO |   at x=-0.17 y=-0.02  (last tag fix 0.0 s ago)
+12:49:25.003 | INFO |   at x=-0.05 y=-0.05  (last tag fix 0.2 s ago)
+12:49:26.005 | INFO |   at x=0.10 y=0.03  (last tag fix 0.4 s ago)
+12:49:27.007 | INFO |   at x=0.15 y=0.13  (last tag fix 0.6 s ago)
+12:49:27.408 | INFO | Trajectory ended at arena x=0.13 y=0.15; planned end x=0.00 y=0.00 (off by 0.20 m)
+12:49:28.411 | INFO |   return 2: from x=0.08 y=0.15, 0.17 m in 5 s
+12:49:29.952 | WARNING | Trajectory not started (attempt 1, see ESP log)
+12:49:30.131 | INFO | Trajectory started from arena x=0.08 y=0.15 (4.7 s)
+12:49:30.131 | INFO |   at x=0.01 y=0.13  (last tag fix 0.5 s ago)
+12:49:31.134 | INFO |   at x=0.02 y=0.06  (last tag fix 0.8 s ago)
+12:49:32.138 | INFO |   at x=0.02 y=0.09  (last tag fix 1.0 s ago)
+12:49:32.204 | INFO | Heading check from known tags 15+16: heading was off by +2.3 deg
+12:49:33.140 | INFO |   at x=-0.02 y=0.08  (last tag fix 0.2 s ago)
+12:49:34.144 | INFO |   at x=-0.08 y=-0.05  (last tag fix 0.4 s ago)
+12:49:34.948 | INFO | Trajectory ended at arena x=-0.12 y=-0.18; planned end x=0.00 y=0.00 (off by 0.22 m)
+12:49:35.949 | INFO | Landing at x=-0.10 y=-0.16 (tag-corrected)
+12:49:35.949 | INFO | LAND command sent (CMD_LAND)
+12:49:36.253 | INFO | CMD_LAND sent to drone 3.
+12:49:36.296 | INFO | Frames 193, tag fixes 58 (0 ignored).
+12:49:36.298 | INFO | KNOWN TAGS (reference tags used to correct the drone's position):
+12:49:36.300 | INFO |   tag 15 at (+0.91, +0.00): seen in 35 frame(s), first t=14.5s, closest 1.15 m
+12:49:36.300 | INFO |   tag 16 at (+1.91, +0.00): seen in 4 frame(s), first t=22.9s, closest 1.50 m
+12:49:36.301 | INFO |   tag 17 at (+1.91, +0.92): seen in 8 frame(s), first t=50.3s, closest 1.27 m
+12:49:36.301 | INFO |   tag 18 at (+3.19, -1.37): seen in 5 frame(s), first t=28.9s, closest 1.19 m
+12:49:36.301 | INFO |   tag 19 at (+1.91, -1.37): seen in 4 frame(s), first t=25.0s, closest 1.12 m
+12:49:36.302 | INFO |   tag 20 at (+3.19, +0.92): seen in 6 frame(s), first t=45.5s, closest 1.15 m
+12:49:36.346 | INFO | HEADING CHECKS (two known tags in one picture): 4, 0 not applied
+12:49:36.346 | INFO |   t=24.0s: tags 15+16, 3 check(s), first said heading off by +3.8 deg
+12:49:36.347 | INFO |   t=71.1s: tags 15+16, 1 check(s), first said heading off by +2.3 deg, drifted +0.7 deg since the previous one
+12:49:36.347 | INFO | FINAL TARGET POSES (arena frame; median -> drop outliers -> weighted mean, see tag_fusion.py):
+12:49:36.347 | INFO |   tag 2: x +3.254 y -0.132 m  (median +3.253, -0.135)  first seen t=28.9s
+12:49:36.347 | INFO |      method TAG: placed relative to known tag(s) in the same picture: 18 (3)
+12:49:36.348 | INFO |      (1 PX4-only sighting(s) not used - known-tag sightings are more accurate)
+12:49:36.348 | INFO |      after-flight correction (heading from the two-tag checks) moved it 3.7 cm from the live estimate (+3.291, -0.134)
+12:49:36.348 | INFO |      (2 sighting(s) over 1.6 m from the camera not used)
+12:49:36.348 | INFO |      combined 3/3 sightings (outlier cut 5 cm), 2 viewpoint(s); weights favour close, slow views with the tags near the picture centre
+12:49:36.348 | INFO |      uncertainty ~5.2 cm -> unconfirmed (needs more sightings / viewpoints)
+12:49:36.348 | INFO |   tag 3: x +2.787 y -1.403 m  (median +2.784, -1.404)  first seen t=27.8s
+12:49:36.349 | INFO |      method TAG: placed relative to known tag(s) in the same picture: 18 (3)
+12:49:36.349 | INFO |      after-flight correction (heading from the two-tag checks) moved it 1.2 cm from the live estimate (+2.786, -1.391)
+12:49:36.349 | INFO |      (1 sighting(s) over 1.6 m from the camera not used)
+12:49:36.349 | INFO |      combined 3/3 sightings (outlier cut 6 cm), 3 viewpoint(s); weights favour close, slow views with the tags near the picture centre
+12:49:36.349 | INFO |      uncertainty ~5.1 cm -> unconfirmed (needs more sightings / viewpoints)
+12:49:36.349 | INFO |   tag 5: x +4.202 y +0.910 m  (median +4.204, +0.899)  first seen t=41.2s
+12:49:36.350 | INFO |      method ODOM, re-corrected after the flight: PX4 position corrected by the known-tag fixes before AND after each sighting (median 1.08 m from the nearest fix)
+12:49:36.350 | INFO |      sightings with a fix before+after 7, before only 0, after only 0
+12:49:36.350 | INFO |      after-flight correction (heading from the two-tag checks) moved it 31.9 cm from the live estimate (+4.455, +1.106)
+12:49:36.350 | INFO |      live estimate vs truth: error 308.3 cm
+12:49:36.350 | INFO |      combined 7/7 sightings (outlier cut 15 cm), 3 viewpoint(s); weights favour close, slow views with the tags near the picture centre
+12:49:36.350 | INFO |      uncertainty ~3.9 cm -> CONFIRMED
+12:49:36.350 | INFO |      vs truth (+1.400, +0.690): error 281.1 cm (fwd/back +280.2, left/right +22.0)
+12:49:36.351 | INFO |   tag 12: x +2.347 y -0.654 m  (median +2.348, -0.653)  first seen t=25.0s
+12:49:36.351 | INFO |      method TAG: placed relative to known tag(s) in the same picture: 19 (2), 18 (2)
+12:49:36.351 | INFO |      after-flight correction (heading from the two-tag checks) moved it 2.1 cm from the live estimate (+2.368, -0.650)
+12:49:36.351 | INFO |      (2 sighting(s) over 1.6 m from the camera not used)
+12:49:36.351 | INFO |      combined 4/4 sightings (outlier cut 9 cm), 3 viewpoint(s); weights favour close, slow views with the tags near the picture centre
+12:49:36.351 | INFO |      uncertainty ~4.4 cm -> unconfirmed (needs more sightings / viewpoints)
+12:49:36.351 | INFO |   tag 13: x +2.741 y +0.895 m  (median +2.756, +0.891)  first seen t=47.1s
+12:49:36.352 | INFO |      method TAG: placed relative to known tag(s) in the same picture: 20 (3), 17 (1)
+12:49:36.352 | INFO |      (1 PX4-only sighting(s) not used - known-tag sightings are more accurate)
+12:49:36.352 | INFO |      after-flight correction (heading from the two-tag checks) moved it 0.6 cm from the live estimate (+2.740, +0.901)
+12:49:36.352 | INFO |      combined 4/4 sightings (outlier cut 10 cm), 3 viewpoint(s); weights favour close, slow views with the tags near the picture centre
+12:49:36.352 | INFO |      uncertainty ~5.0 cm -> unconfirmed (needs more sightings / viewpoints)
+12:49:36.352 | INFO |   not found: [0, 1, 4, 6, 7, 8, 9, 10, 11, 14]
+12:49:36.353 | INFO | MISSION TIME:
+12:49:36.353 | INFO |      0.0 s  GO (confirmed)  ( 10.0 s)
+12:49:36.353 | INFO |     10.0 s  takeoff wait over, looking for a known tag  (  9.0 s)
+12:49:36.354 | INFO |     19.0 s  trajectory started  ( 40.8 s)
+12:49:36.354 | INFO |     59.8 s  trajectory ended  (  0.0 s)
+12:49:36.355 | INFO |     59.8 s  return to (0, 0)  (  1.1 s)
+12:49:36.355 | INFO |     60.9 s  trajectory started  (  6.4 s)
+12:49:36.355 | INFO |     67.3 s  trajectory ended  (  2.7 s)
+12:49:36.355 | INFO |     70.0 s  trajectory started  (  4.8 s)
+12:49:36.355 | INFO |     74.9 s  trajectory ended  (  1.0 s)
+12:49:36.356 | INFO |     75.9 s  LAND sent
+12:49:36.356 | INFO |   total 75.9 s (GO -> LAND sent)
+12:49:39.387 | INFO | CommsNode stopped

@@ -99,6 +99,8 @@ STALE_TIMEOUT_S = 3.0
 BLEND = 0.5                # how much each new tag fix moves the correction (0-1)
 MAX_JUMP_M = 1.0           # ignore a fix this far from where we think we are
 RESEND_SHIFT_M = 0.10      # re-send the goal when the correction moves it this much
+# Slow hop back over (0, 0) after a --trajectory, before landing (see smooth_trajectory).
+RETURN_SPEED = {"cruise": 0.10, "corner": 0.05, "corner_radius": 0.10, "accel": 0.05, "smoothing_s": 1.0}
 RESEND_MIN_S = 1.0         # ... but not more often than this
 GOTO_RESEND_S = 2.0        # re-send if the drone has not started moving
 # Heading from two known tags in one picture (e.g. 20 and 21, both on y = 0).
@@ -1121,6 +1123,10 @@ def main() -> int:
                          "between points, and fewer upload packets survive the ESP's 6-packet UDP queue.")
     ap.add_argument("--max-speed", type=float, default=0.30,
                     help="Refuse faster trajectories (m/s).")
+    ap.add_argument("--return-home", action=argparse.BooleanOptionalAction, default=True,
+                    help="After a --trajectory, slide back over (0, 0) with short tag-corrected "
+                         "hops, then land (default). --no-return-home lands straight away "
+                         "wherever the trajectory ends (faster, less accurate).")
     ap.add_argument("--search", action="store_true",
                     help="Fly the search behaviour in the arena file's `search:` block "
                          "instead of the route (see search_patterns.py).")
@@ -1231,18 +1237,30 @@ def main() -> int:
                         "(0, 0) facing +x until a landmark is seen.")
 
         if traj_pts is not None:
-            if corr.have_fix:
-                log.info("Centring over the start point (0, 0) using the tags...")
-                CLOCK.mark("centring over the start")
-                fly_to(comms, drone_id, tracker, corr, 0.0, 0.0, radius=0.10)
-                time.sleep(1.0)              # settle before the trajectory locks its start
-            if detector is None:
-                CLOCK.mark("start heading check")
-                heading_check(loc, "START", since=loc.t0)
+            # No centring and no start/end heading wait: the path starts wherever the drone
+            # hovers, and the heading is still corrected in flight whenever two known tags
+            # share a picture. Afterwards fly back over (0, 0) using the tags, then land.
             play_trajectory(comms, drone_id, tracker, corr, traj_pts, dt_ms)
-            if detector is None:
-                CLOCK.mark("end heading check")
-                heading_check(loc, "END", since=time.monotonic())
+            if args.return_home:
+                log.info("Returning to the start point (0, 0) using the tags before landing...")
+                CLOCK.mark("return to (0, 0)")
+                for attempt in range(1, 3):      # straight after the main trajectory; a slow mini-trajectory
+                                                 # holds the heading (CMD_GOTO turns to face the goal)
+                    snap = tracker.latest().packet
+                    x, y, _ = corr.to_arena(snap.ned_x, snap.ned_y, snap.heading_rad)
+                    if math.hypot(x, y) <= 0.10:
+                        break
+                    prof = smooth_trajectory([(x, y), (0.0, 0.0)], RETURN_SPEED, dt_ms / 1000.0)
+                    log.info("  return %d: from x=%.2f y=%.2f, %.2f m in %.0f s",
+                             attempt, x, y, prof["length"], prof["duration"])
+                    back = np.column_stack([prof["xy"] - prof["xy"][0], np.zeros(len(prof["xy"]))])
+                    play_trajectory(comms, drone_id, tracker, corr, back, int(round(prof["dt"] * 1000)))
+                    time.sleep(1.0)              # settle so it comes straight down
+            else:
+                log.info("--no-return-home: landing where the trajectory ended")
+            snap = tracker.latest().packet
+            x, y, _ = corr.to_arena(snap.ned_x, snap.ned_y, snap.heading_rad)
+            log.info("Landing at x=%.2f y=%.2f (tag-corrected; start point is 0, 0)", x, y)
             log.info("LAND command sent (CMD_LAND)")
             CLOCK.mark("LAND sent")
             send_command(comms, drone_id, CMD_LAND, "CMD_LAND", repeat=3)
