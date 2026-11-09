@@ -1,232 +1,178 @@
-# esp-everything-qgc-bridge
+# CDE1302 UAV – Group 3: AprilTag search drone
 
-ESP32-S3 companion-computer firmware for CDE1302.
-It consists of ESP32 firmware in `main/` and laptop-side Python scripts in `laptop/`.
+A small indoor drone that flies a pre-planned path over the arena, spots
+AprilTags on the floor with its camera, and reports where the target tags are.
 
-Note that the example drone ID in this README is 22 (it's indicated as [drone ID] in some places). You need to change it to your drone's ID when running the scripts.
+**Group 3**
+- Ong Miao Ying, Clara
+- Yow Keng Yang, Daniel
+- Kugapryan Kumaresan
+- Loke Ee Zhe
 
-## 1. Setup ESP32 (Optional)
+Built on the course's base code,
+[linfengfrank/esp-everything-qgc-bridge](https://github.com/linfengfrank/esp-everything-qgc-bridge),
+and extended by our group (see [What we changed](#what-we-changed)).
 
-You can skip this if you only want to run the laptop scripts. The ESP32 firmware has already been built and flashed onto the drone's ESP32-S3.
+## How it works
 
-In this step, you need an internet connection to build and close the QGroundControl app if it is running. The ESP32-S3 must be connected to the laptop via USB.
+```
+ PLAN (offline)            LAPTOP (Python)                 DRONE
+ MATLAB / Python  ──CSV──▶ tag_mission.py  ◀──Wi-Fi UDP──▶ ESP32-S3 ──UART MAVLink──▶ PX4 ──▶ motors
+ trajectory                tag_stream.py (live video)       camera + 8 ToF sensors
+```
 
-Everything this firmware needs is committed in-tree (MAVLink `c_library_v2`,
-esp-apriltag, the VL53L5CX driver and `managed_components/`). The only external
-dependency is ESP-IDF itself:
+1. **Plan:** a trajectory is designed offline (MATLAB minimum-snap, or Python)
+   and saved as a CSV of `t, x, y, z`. The units are seconds and metres from
+   the start point: x is forward and y is right.
+2. **Take off:** `tag_mission.py` uploads the CSV to the drone. When you type
+   `GO-3`, the ESP32 arms PX4 and climbs to 1 m.
+3. **Fly:** the ESP32 plays the trajectory through PX4. The drone holds its
+   heading the whole way and moves sideways and backwards as needed.
+4. **Detect:** the ESP32 runs the AprilTag detector (tag16h5) on every camera
+   frame and sends each sighting to the laptop.
+5. **Correct and map:** the laptop uses the **known tags 15–20**, which are at
+   measured positions, to correct PX4's position drift. It places each
+   **target tag (0–14)** on the arena map.
+6. **Land:** optionally the drone first slides back to (0, 0), then it lands.
+   The laptop prints the target tags it found and their positions.
+
+Full diagrams: `system_architecture_simple.png` and
+`checkerboard_calibration_flowchart.png`. They were made alongside the project
+and are not in this repo.
+
+## Final runs
+
+Run from the repo root on the laptop, connected to the drone's Wi-Fi. Drone 3
+is at `172.20.10.13`.
 
 ```bash
-git clone https://github.com/espressif/esp-idf.git ../esp-idf
-cd ../esp-idf && git checkout "$(sed -n 's/^IDF_CHECKOUT_REF=//p' ../esp-everything-qgc-bridge/tools/idf-pin.env)"
-git submodule update --init --recursive
-./install.sh esp32s3          # ~2 GB of toolchain into ~/.espressif
-cd -
+# Live camera feed with tags drawn (optional, runs alongside a mission)
+python laptop/tag_stream.py --esp-ip 172.20.10.13
+
+# Ellipse
+python laptop/tag_mission.py --drone-id 3 --trajectory trajectory/ellipse_asym_traj.csv --no-return-home --takeoff-wait 14 --confirm
+# Elephant
+python laptop/tag_mission.py --drone-id 3 --trajectory trajectory/elephant_min_snap_traj.csv --takeoff-wait 14 --no-return-home --confirm
+# Rectangle
+python laptop/tag_mission.py --drone-id 3 --trajectory trajectory/rectangle_min_snap_traj.csv --takeoff-wait 14 --confirm
+# Petals
+python laptop/tag_mission.py --drone-id 3 --trajectory trajectory/petals_traj.csv --takeoff-wait 14 --confirm
 ```
 
-See `tools/idf-pin.env` for the pinned version and why it matters.
+- `--confirm` asks you to type `GO-3` before anything flies.
+- `--takeoff-wait 14` is the time in seconds from takeoff to the start of the
+  path. It has to be long enough for the drone to reach 1 m, or the path is
+  flown low.
+- `--return-home` (the default) slides the drone back to (0, 0) in up to two
+  short hops before landing, which costs about 10 s.
+  `--no-return-home` lands where the path ends.
+- `--dry-run` doesn't fly. It prints the tag-corrected position while you
+  carry the drone around, which is a quick check of the camera and the tag
+  layout.
+- Each run writes a log and a CSV of tag sightings to
+  `laptop/final_run_logs/`. Older test runs are in `laptop/logged_runs/`.
 
-### Build and flash a drone
+## Trajectories
 
-For example, let drone ID = 22 and the ESP32-S3 is on `/dev/tty.usbmodem2101` (default MacBook Pro USB-C port):
+All paths start and end at (0, 0) and cruise at up to 0.297 m/s;
+`tag_mission.py` refuses anything faster than 0.30 m/s.
 
-`flash_drone.sh` pins `CONFIG_DRONE_ID` and `CONFIG_HOST_IPV4_ADDR`
-(host IP = `192.168.1.<100 + drone id>`) into `sdkconfig`, builds, verifies the
-generated header really is that drone, flashes, then restores `sdkconfig`:
+| Path | CSV | Made with | Time |
+|---|---|---|---|
+| Lopsided ellipse (1.3 m left / 0.9 m right, shifted 0.2 m left) | `ellipse_asym_traj.csv` | `make_ellipse.py` (constant speed) | 38 s |
+| Elephant (15 points) | `elephant_min_snap_traj.csv` | `elephant_min_snap_demo.m` (MATLAB minimum-snap) | 79 s |
+| Rectangle over the likely tag spots | `rectangle_min_snap_traj.csv` | `rectangle_min_snap_demo.m` (MATLAB minimum-snap) | 50 s |
+| Petals, passing over tags 17 and 19 | `petals_traj.csv` | `make_petals.py` (Catmull-Rom, curvature-limited speed) | 83 s |
 
+Minimum-snap uses one 7th-order polynomial per leg and minimises the snap (the
+fourth derivative of position). The result is smooth enough for PX4 to track
+closely. Open a `.m` file in MATLAB and press Run to regenerate its CSV and
+plot. Other paths in `trajectory/` (line, stem-square, triangle, lawnmower,
+min-snap ellipses) were for testing.
+
+## Arena set-up
+
+Tag positions are in `laptop/tag_arena.yaml`, in metres from the start point
+(x forward, y right):
+
+| Known tag | 15 | 16 | 17 | 18 | 19 | 20 |
+|---|---|---|---|---|---|---|
+| x | 0.91 | 1.91 | 1.91 | 3.19 | 1.91 | 3.19 |
+| y | 0.00 | 0.00 | 0.915 | −1.37 | −1.37 | 0.915 |
+
+- **Targets** are any tag with ID 0–14; only a few are placed.
+- **Tag size:** all tags are tag16h5 with a 114 mm black square.
+- **Adding a known tag** needs no reflash: add a line under `known_tags:`.
+  Use ID 21, 22 or 23 (the drone detects IDs 0–23), and don't reuse a target
+  ID.
+- **Start position:** place the drone at (0, 0) facing +x, towards tag 15.
+
+## Repo layout
+
+| Folder | What's in it |
+|---|---|
+| `main/` | ESP32-S3 firmware (C, FreeRTOS): Wi-Fi, PX4 MAVLink link, takeoff/landing, trajectory player, obstacle avoidance, AprilTag detection, camera stream |
+| `components/` | Libraries used by the firmware: esp-apriltag, MAVLink, VL53L5CX ToF driver |
+| `laptop/` | Python: `tag_mission.py` (the mission), `tag_stream.py` (live feed), and the modules they use |
+| `laptop/tag_arena.yaml` | Known tag positions and target IDs |
+| `trajectory/` | Trajectory generators (MATLAB `.m`, Python) and their CSVs and plots |
+| `tools/` | ESP-IDF version pin |
+
+Main laptop modules:
+- `comms.py`, `protocol.py`: UDP messages to and from the drone.
+- `apriltag_host.py`: the drone's own AprilTag C code compiled for the
+  laptop, so `tag_stream.py` decodes tags exactly as the drone does.
+- `tag_fusion.py`: combines many sightings of a target into one position.
+- `search_patterns.py`: smooths paths and checks camera coverage.
+- `send_trajectory.py`: loads trajectory CSVs.
+- `simple_waypoint_mission.py`: telemetry tracking and commands.
+
+## What we changed
+
+Compared with the base repo:
+
+**Drone firmware.** These changes only reach the drone after a rebuild and
+reflash.
+- **Camera calibration** (`main/at_detect.c`): fx, fy, cx, cy measured on
+  drone 3's own camera with a checkerboard (fx 188.9, fy 188.2, cx 160.5,
+  cy 118.1; 0.30 px error). The base code had fx 163.5 and fy 153.2. These
+  numbers turn a tag's size in the picture into its distance, so wrong values
+  give wrong positions. The same numbers are in `laptop/apriltag_host.py`.
+- **Tag size** 0.12 m → 0.114 m, the measured black square.
+- **Fixed camera exposure** (exposure 50, auto gain): less motion blur on the
+  tags while flying.
+- **Tag IDs 0–23** instead of 0–21
+  (`components/esp-apriltag/apriltag/tag16h5.c`).
+- **Takeoff height** 0.5 m → 1.0 m (`CRUISE_ALT_M` in `main/main.c`,
+  `WIFI_CRUISE_ALT_M` in `main/wifi_task.c`). Higher means the camera sees
+  more floor.
+- **New command `CMD_YAW`:** hold position and turn to a given heading.
+
+**Laptop** (`laptop/tag_mission.py`, new):
+- **Tag-based localisation:** each sighting of a known tag corrects PX4's
+  drift. Two known tags in the same picture also correct the heading.
+- **Target mapping:** each target is placed from a known tag in the same
+  picture when possible (no drift), otherwise from the corrected drone
+  position. All sightings of a target are combined by `tag_fusion.py`.
+- **Trajectory flying from CSV**, with a speed check, timing per stage, and
+  an optional slide back to (0, 0) before landing (`--return-home`).
+- **Logs** for every run in `laptop/final_run_logs/`.
+
+**Trajectories:** the four final paths above, plus test paths.
+
+## Setup
+
+**Laptop:** Python 3.10+.
 ```bash
-./flash_drone.sh                           # prompts for drone ID and port
-./flash_drone.sh 22                        # prompts for the port
-./flash_drone.sh 22 /dev/tty.usbmodem2101  # non-interactive
+python -m pip install -r laptop/requirements.txt
 ```
+`tag_stream.py` compiles the AprilTag detector the first time it runs, so it
+needs a C compiler. On Windows that's MinGW-w64 gcc, for example
+`conda install -c conda-forge gcc`.
 
-It finds ESP-IDF automatically (`$IDF_PATH`, `./esp-idf`, `../esp-idf`,
-`~/esp/esp-idf`, `~/esp-idf`), sourcing `export.sh` only if needed.
-
-### Deterministic drone addresses
-
-`flash_drone.sh` asks for the drone ID when no ID argument is supplied and
-builds the firmware with this mapping:
-
-```text
-drone IPv4 address = 192.168.1.(200 + drone ID)
-```
-
-For example, drone 9 is `192.168.1.209` and drone 22 is
-`192.168.1.222`. This is separate from `CONFIG_HOST_IPV4_ADDR`: the flash
-script retains the existing QGC/laptop mapping `192.168.1.(100 + drone ID)`.
-After flashing, it prints the exact `camera_stream.py --esp-ip ...` command.
-The WiFi router must use gateway `192.168.1.1` with netmask
-`255.255.255.0`.
-
-## 2. Setup (Laptop)
-
-You can choose one of the following two options to install the laptop-side Python scripts and dependencies:
-
-### Pip install (Python 3.10+)
-
-Laptop side (Python 3.10+), with pip:
-
+**Firmware:** needs ESP-IDF; the pinned version is in `tools/idf-pin.env`.
 ```bash
-python3 -m pip install -r laptop/requirements.txt
+idf.py menuconfig                 # Drone Configuration: drone ID, Wi-Fi, laptop IP
+idf.py build
+idf.py -p COM5 flash monitor      # use the drone's COM port (Device Manager)
 ```
-
-or in a conda environment (below), which brings its own Python, so it also
-works on a machine whose Python is too old or shared with other projects.
-
-### Conda environment
-
-`laptop/environment.yml` creates an environment named `cde1302-laptop` with
-Python 3.12 and the packages from `laptop/requirements.txt`. Every package
-installs prebuilt binaries on 64-bit Windows, Linux with glibc 2.27+ (Ubuntu 18.04+),
-and macOS 13+ (14+ on an Intel Mac); older systems fall back to compiling
-OpenCV or SciPy from source.
-
-1. Install conda once per machine. An existing Anaconda or Miniconda works;
-   on a new machine, install Miniforge (on Windows, see [Windows](#windows-havent-tested-yet)):
-
-   ```bash
-   curl -LO "https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-$(uname)-$(uname -m).sh"
-   bash "Miniforge3-$(uname)-$(uname -m).sh"   # answer yes when it offers to initialize conda
-   ```
-
-   Then open a new terminal. If `conda activate` later says to run
-   `conda init`, run `conda init zsh` (or `bash`) and open a new terminal.
-
-2. Create the environment once from the repo root:
-
-   ```bash
-   conda env create -f laptop/environment.yml
-   ```
-
-3. Activate it in every new terminal before running the scripts:
-
-   ```bash
-   conda activate cde1302-laptop
-   python laptop/tag_stream.py --esp-ip 192.168.1.222   # for example
-   conda deactivate                          # when done
-   ```
-
-After `laptop/requirements.txt` changes, update the environment with
-`conda env update -f laptop/environment.yml`. The laptop tests run with
-`cd laptop && python -m pytest tests`.
-
-### C compiler
-
-`tag_stream.py` compiles the drone's AprilTag detector on its first run, so
-it needs a C compiler: `xcode-select --install` on macOS,
-`sudo apt install build-essential` on Ubuntu. For Windows, see step 3 of
-[Windows](#windows-havent-tested-yet).
-
-### Windows (Haven't tested yet)
-
-Follow the conda steps above, with these changes:
-
-1. **Folders:** put the repo and conda in paths with only English letters
-   and no spaces, e.g. `C:\cde1302` and `C:\miniforge3`. The compiler in
-   step 3 can't handle other paths.
-2. **Installing conda:** run `Miniforge3-Windows-x86_64.exe` from
-   <https://github.com/conda-forge/miniforge/releases/latest> and type every
-   command in "Miniforge Prompt" from the Start menu ("Anaconda Prompt" with
-   Anaconda). Don't use WSL: its default networking never passes the drones'
-   packets on.
-3. **C compiler:** after creating the environment, install MinGW-w64 gcc into
-   it (about 110 MB; Visual Studio's compiler won't work) and check the build:
-
-   ```bat
-   conda activate cde1302-laptop
-   conda install -c conda-forge gcc
-   python laptop/apriltag_host.py
-   ```
-
-   It should print `tag16h5 ncodes = 22 (expected 22)`.
-4. **`python`, not `python3`:** conda's Python on Windows has no `python3`
-   command, so type `python` wherever this README says `python3`.
-5. **Firewall:** the drones send telemetry and video to the laptop unprompted,
-   so allow Python through Windows Defender Firewall when it asks, and set
-   the drone Wi-Fi to a Private network. It asks once per environment; if you
-   clicked Cancel, remove the block rule under "Allow an app through
-   firewall".
-
-### Laptop IP address
-
-The drones send MAVLink, telemetry, and ToF debug data to
-`192.168.1.(100 + drone ID)` (set when flashing), so the QGroundControl or
-mission laptop must hold that address on the drone Wi-Fi. Camera video follows
-the source IP of the latest `camera_stream.py` or `tag_stream.py` keepalive and
-can therefore be viewed from another laptop on the same Wi-Fi. The small
-AprilTag debug stream is also copied to that viewer when
-`tag_stream_legacy.py` uses `--detail`.
-
-## 3. ESP32 camera preview
-
-View a drone's camera over WiFi (drone IP = `192.168.1.(200 + drone ID)`; here the example drone ID is 22, so the drone IP becomes 192.168.1.222):
-
-```bash
-python3 laptop/camera_stream.py --esp-ip 192.168.1.222 [--fps 10] [--quality 60]
-```
-
-`s` saves a frame.
-
-With AprilTags drawn on the frame:
-```bash
-python3 laptop/tag_stream.py --esp-ip 192.168.1.222
-```
-
-For tuning, use `tag_stream_legacy.py --detail` (or `d` while it runs): it adds
-rejected tags, a HUD and the drone's own detections.
-
-For both commands, `q`/Esc quits. The drone streams only while the viewer
-runs (~9 fps, ~130 ms from capture to the laptop on the OV3660). The overlay
-and the console show the drone-side frame age and dropped frames.
-
-Only one camera destination is active at a time: if viewers on two laptops
-send keepalives, the most recent keepalive wins. The Wi-Fi access point must
-allow client-to-client traffic, and the viewer firewall must allow Python to
-receive UDP 5008 and 5009. MAVLink remains on `CONFIG_HOST_IPV4_ADDR` while a
-different laptop is viewing the camera.
-
-## 4. Simple arming and takeoff (Lab 5)
-
-`--drone-id` (required) is the ID flashed into the ESP32. The camera/AprilTag
-pipeline (section 3) never affects flights: tags are only detected and reported.
-
-Check the communication without sending flight commands.
-```bash
-python3 laptop/simple_arm_takeoff_land.py --monitor-only --drone-id [DRONE_ID]
-```
-
-Takeoff -> hover at 0.5 m altitude -> land. The altitude is `CRUISE_ALT_M` in the ESP32 firmware (`main/main.c`; keep `WIFI_CRUISE_ALT_M` in `main/wifi_task.c` equal).
-```bash
-python3 laptop/simple_arm_takeoff_land.py --drone-id [DRONE_ID]
-```
-Type `ARM-[drone ID]` when prompted.
-
-Full procedure: [laptop/TEST_GUIDE.md](laptop/TEST_GUIDE.md).
-
-## 5. Send a waypoint mission (Lab 5)
-
-```bash
-python3 laptop/simple_waypoint_mission.py \
-  --waypoints-file waypoints/waypoints_example.txt --confirm \
-  --drone-id [DRONE_ID]
-```
-
-`--confirm` asks for `MISSION-[drone ID]`; without it, the drone takes off as
-soon as telemetry arrives. Waypoints are `x,y` metres (x = north, y = east) from
-PX4's local origin, plus the drone's start offset in `laptop/setup.yaml` if listed.
-
-Full procedure: [waypoints/WAYPOINT_FLIGHT_TEST_GUIDE.md](waypoints/WAYPOINT_FLIGHT_TEST_GUIDE.md).
-
-## 6. Fly from a CSV trajectory
-
-This is a 2x1 ellipse minimum-snap trajectory. Put the drone at the tip of the major axis, facing outward. The takeoff placement can be seen in `trajectory/ellipse_start_placement.png`.
-
-```bash
-python3 laptop/send_trajectory.py --takeoff --takeoff-wait 12 \
-  --trajectory trajectory/ellipse_min_snap_traj.csv --confirm \
-  --drone-id [DRONE_ID]
-```
-
-`--confirm` asks for `TRAJ-[drone ID]` before anything is sent.
-
-See `trajectory/README.md` for the included circle and compact minimum-snap ellipse, how to regenerate their CSV files, and the space each path needs.
