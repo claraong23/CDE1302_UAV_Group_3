@@ -36,14 +36,7 @@ and extended by our group (see [What we changed](#what-we-changed)).
 6. **Land:** optionally the drone first slides back to (0, 0), then it lands.
    The laptop prints the target tags it found and their positions.
 
-Full diagrams: `system_architecture_simple.png` and
-`checkerboard_calibration_flowchart.png`. They were made alongside the project
-and are not in this repo.
-
 ## Final runs
-
-Run from the repo root on the laptop, connected to the drone's Wi-Fi. Drone 3
-is at `172.20.10.13`.
 
 ```bash
 # Live camera feed with tags drawn (optional, runs alongside a mission)
