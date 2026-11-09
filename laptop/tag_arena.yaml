@@ -89,3 +89,13 @@ search:
     - [2.70,  0.90]
     - [4.05,  0.90]
   camera: {pitch_deg: 60, altitude: 0.5}   # preview only; match --cam-pitch
+
+# Tape-measured target positions (6 Nov 2026), metres from the start X.
+# tag_mission.py prints each target's error against these in its final report.
+# Commented out: these were the 6 Nov test layout. Uncomment (and update) after
+# measuring where the targets really are, to get error numbers.
+# target_truth:          # id: [x, y]
+#   4: [1.40, -0.30]
+#   5: [1.40,  0.69]
+#   6: [2.73, -0.46]
+#   7: [2.60,  0.68]
