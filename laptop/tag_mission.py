@@ -50,6 +50,8 @@ import signal
 import socket
 import sys
 import threading
+import bisect
+import collections
 import time
 import types
 from dataclasses import replace
@@ -62,7 +64,6 @@ import yaml
 from apriltag_host import CAM_POS_M, Detector, passes_gate
 from camera_stream import COMMAND_PORT, KEEPALIVE_S, FrameAssembler, drain_socket
 from comms import CommsNode
-from mission_v1 import PoseHistory
 from protocol import (
     AT_DEBUG_PORT,
     CAMERA_STREAM_PORT,
@@ -115,6 +116,32 @@ HEADING_BURST_S = 2.0      # checks closer than this in time form one burst (aft
 # Floor tag with its top edge pointing +x. Rows are arena x, y, z(down) in tag
 # axes (AprilTag tag frame: x right, y down the printed image, z into the floor).
 FLOOR = np.array([[0, -1, 0], [1, 0, 0], [0, 0, 1]], float)
+POSE_MAX_AGE_S = 0.5       # skip a sighting if no telemetry this close in time
+
+
+class PoseHistory:
+    """Recent drone poses from telemetry, looked up by time (moved here from mission_v1.py)."""
+
+    def __init__(self, maxlen: int = 300) -> None:
+        self._poses: collections.deque[tuple[float, float, float, float]] = collections.deque(maxlen=maxlen)
+        self._lock = threading.Lock()
+
+    def add(self, t: float, x: float, y: float, heading: float) -> None:
+        with self._lock:
+            self._poses.append((t, x, y, heading))
+
+    def at(self, t: float) -> tuple[float, float, float] | None:
+        """(x, y, heading) of the telemetry sample nearest in time to t."""
+        with self._lock:
+            poses = list(self._poses)
+        if not poses:
+            return None
+        times = [p[0] for p in poses]
+        i = bisect.bisect_left(times, t)
+        best = min(poses[max(0, i - 1):i + 1], key=lambda p: abs(p[0] - t))
+        if abs(best[0] - t) > POSE_MAX_AGE_S:
+            return None
+        return best[1], best[2], best[3]
 
 
 def rot_z(a: float) -> np.ndarray:

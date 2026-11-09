@@ -17,9 +17,10 @@ Lopsided, in front of the drone (no --traj-rotate needed), as flown with
     python trajectory/make_ellipse.py --forward --left 1.3 --right 0.9 --out trajectory/ellipse_asym_traj.csv
 
 --shift 0.3 moves the whole ellipse 0.3 m left (as flown): the drone first flies
-0.3 m left (straight into the ellipse, same direction, same speed), laps, slows
-to a stop at the shifted tip (--end-ramp, 2 s by default when shifted) and then
-slides smoothly back to (0, 0), so the trajectory itself ends at the start.
+0.3 m left (straight into the ellipse, same direction, same speed) and laps; over
+the last eighth of the lap the shift fades out, so the path curves straight into
+(0, 0) and slows to a stop there (--end-ramp, 2 s by default when shifted).
+No stop-and-reverse at the end, so no overshoot.
 """
 import argparse
 import math
@@ -62,7 +63,11 @@ def main():
     # layout, meant for --traj-rotate 180).
     th = np.linspace(0.0, 2 * math.pi, 20001)
     ex = a - a * np.cos(th)
-    ey = -np.where(np.sin(th) >= 0, bl, br) * np.sin(th) - args.shift
+    # Shift fades out over the last eighth of the lap (smoothstep), so the lap itself
+    # comes back to (0, 0) still heading the same way: no stop-and-reverse, no overshoot.
+    u = np.clip((th - 1.75 * math.pi) / (0.25 * math.pi), 0.0, 1.0)
+    keep = 1 - (35 * u**4 - 84 * u**5 + 70 * u**6 - 20 * u**7)
+    ey = -np.where(np.sin(th) >= 0, bl, br) * np.sin(th) - args.shift * keep
     if args.shift > 0:                                    # lead-in: straight left onto the tip
         n = max(2, int(args.shift / 0.001))
         ex = np.r_[np.zeros(n), ex]

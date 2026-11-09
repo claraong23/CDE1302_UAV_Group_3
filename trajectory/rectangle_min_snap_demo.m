@@ -13,7 +13,7 @@
 % The rectangle is the spots' rectangle shrunk where the camera still covers
 % them: the far edge and the sides come in (the camera sees ahead and to the
 % side), the near edge stays (moving it in would leave those spots behind the
-% camera). With far_in 0 / left_in 0.2 / right_in -0.2 the corner spots stay fully in view for
+% camera). With far_in 0 / left_in -0.1 / right_in -0.2 the corner spots stay fully in view for
 % >= 5 s at 1.0 m height, the middle spot (3.25, -0.10) only ~1.6 s
 % (checked with search_patterns.camera_coverage).
 %
@@ -42,7 +42,7 @@ cover = [140 -140;
          140   93] / 100;
 near_in = 0.00;         % m the near edge moves forward (keep 0: camera looks ahead)
 far_in  = 0.00;         % m the far edge moves back (negative = further out)
-left_in  = 0.20;        % m the left edge moves in (right, towards the middle)
+left_in  = -0.10;       % m the left edge moves in (right, towards the middle; negative = further out left)
 right_in = -0.20;       % m the right edge moves in (negative = further out to the right)
 corner_radius = 0.30;   % m; how far before each corner the turn starts
 v_limit       = 0.297;  % peak speed (m/s); tag_mission.py refuses > 0.30
