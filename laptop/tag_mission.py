@@ -135,6 +135,10 @@ class Arena:
     def __init__(self, path: Path):
         cfg = yaml.safe_load(path.read_text())
         self.tag_size = float(cfg.get("tag_size_m", 0.114))
+        # Known tags can be printed at a different size. The drone measures every tag
+        # as tag_size_m (its TAG_SIZE), and a tag's distance scales with its size, so
+        # known-tag positions are scaled by known_tag_size_m / tag_size_m (_process).
+        self.known_size = float(cfg.get("known_tag_size_m", self.tag_size))
         self.known = {}              # id -> (position (3,), tag->arena rotation)
         for tid, (x, y, yaw) in (cfg.get("known_tags") or {}).items():
             self.known[int(tid)] = (np.array([x, y, 0.0]), rot_z(math.radians(yaw)) @ FLOOR)
@@ -640,6 +644,16 @@ class TagLocaliser:
     def _process(self, captured, dets, writer):
         """Localise from the known tags in one frame, then place its targets."""
         odom = self.poses.at(captured)          # PX4 (x, y, yaw) when the frame was taken
+
+        # Known tags printed at a different size: rescale their position (direction
+        # and rotation are unchanged; distance is proportional to the tag size).
+        k = self.arena.known_size / self.arena.tag_size
+        if abs(k - 1.0) > 1e-9:
+            dets = [types.SimpleNamespace(id=d.id, t=tuple(k * v for v in d.t), R=d.R,
+                                          range_m=k * d.range_m, decision_margin=d.decision_margin,
+                                          centre=getattr(d, "centre", None))
+                    if d.id in self.arena.known and d.t is not None else d
+                    for d in dets]
 
         # 0. Heading from two known tags in one picture (drone detections carry no rotation).
         known_dets = [d for d in dets if d.id in self.arena.known]

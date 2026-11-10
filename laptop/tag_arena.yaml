@@ -8,7 +8,8 @@
 # The camera looks straight down and sees only about 1.0 m x 0.8 m at 0.5 m
 # height, so the route must pass OVER each landmark or it will never be seen.
 
-tag_size_m: 0.114          # black square edge, metres
+tag_size_m: 0.114          # black square edge, metres: TARGET tags; must equal TAG_SIZE in main/at_detect.c
+known_tag_size_m: 0.120    # black square edge of the KNOWN tags (15-20); the laptop rescales their distance
 
 known_tags:          # id: [x, y, yaw_deg]  metres from the start (0, 0); x forward, y right (left = -)
   15: [0.910,  0.000, 0]    # 91 cm forward
