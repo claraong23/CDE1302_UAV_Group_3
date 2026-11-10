@@ -23,7 +23,7 @@ traj_dir = fileparts(mfilename('fullpath'));
 %% User parameters
 % Triangle corners after the start, in order (m; x forward, y right).
 verts = [3.80  1.30;
-         3.50 -1.50];
+         1.00 -1.50];
 corner_radius = 0.30;   % m; how far before each corner the turn starts
 v_limit       = 0.297;  % peak speed (m/s); tag_mission.py refuses > 0.30
 ramp_len      = 0.80;   % m at the start / end used to speed up from / slow down to rest
