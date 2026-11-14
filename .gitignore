@@ -21,3 +21,6 @@ venv/
 
 # macOS
 .DS_Store
+tools/camera_calibration/.apriltag-host/
+tools/camera_calibration/*_shots.npz
+tools/camera_calibration/xiao_firmware/.pio/
