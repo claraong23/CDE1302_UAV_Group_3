@@ -15,7 +15,7 @@
 %   triangle_min_snap.png        top-down path and speed
 %
 % Fly it (no --traj-rotate; x is already forward):
-%   python laptop/tag_mission.py --drone-id 3 --trajectory trajectory/triangle_min_snap_traj.csv --takeoff-wait 16 --confirm
+%   python laptop/tag_mission.py --drone-id 3 --trajectory trajectory/final_triangle/triangle_min_snap_traj.csv --takeoff-wait 16 --confirm
 
 clc; close all;
 traj_dir = fileparts(mfilename('fullpath'));

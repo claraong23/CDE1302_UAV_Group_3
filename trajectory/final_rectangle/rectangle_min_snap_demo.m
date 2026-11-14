@@ -29,7 +29,7 @@
 %   rectangle_min_snap.png        top-down path + candidate spots, and speed
 %
 % Fly it (no --traj-rotate; it already points +x):
-%   python laptop/tag_mission.py --drone-id 3 --trajectory trajectory/rectangle_min_snap_traj.csv --confirm
+%   python laptop/tag_mission.py --drone-id 3 --trajectory trajectory/final_rectangle/rectangle_min_snap_traj.csv --confirm
 
 clc; close all;
 traj_dir = fileparts(mfilename('fullpath'));
