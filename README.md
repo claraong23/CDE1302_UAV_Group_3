@@ -13,6 +13,23 @@ Built on the course's base code,
 [linfengfrank/esp-everything-qgc-bridge](https://github.com/linfengfrank/esp-everything-qgc-bridge),
 and extended by our group (see [What we changed](#what-we-changed)).
 
+## Quick links
+
+- **CAD:** [`CAD files.zip`](CAD%20files.zip) (SolidWorks assembly and parts)
+- **Camera calibration:** [`tools/camera_calibration/`](tools/camera_calibration/)
+- **Mission code:** [`laptop/tag_mission.py`](laptop/tag_mission.py), [`laptop/tag_fusion.py`](laptop/tag_fusion.py)
+- **Final run logs:** [`laptop/final_run_logs/`](laptop/final_run_logs/)
+- **Trajectories** ([`trajectory/`](trajectory/), details in [Trajectories](#trajectories)):
+
+| Final path | Generator | CSV | Plot |
+|---|---|---|---|
+| Ellipse | [`make_ellipse.py`](trajectory/make_ellipse.py) | [`ellipse_asym_traj.csv`](trajectory/ellipse_asym_traj.csv) | [`ellipse_asym_traj.png`](trajectory/ellipse_asym_traj.png) |
+| Elephant | [`elephant_min_snap_demo.m`](trajectory/elephant_min_snap_demo.m) | [`elephant_min_snap_traj.csv`](trajectory/elephant_min_snap_traj.csv) | [`elephant_min_snap.png`](trajectory/elephant_min_snap.png) |
+| Triangle | [`triangle_min_snap_demo.m`](trajectory/triangle_min_snap_demo.m) | [`triangle_min_snap_traj.csv`](trajectory/triangle_min_snap_traj.csv) | [`triangle_min_snap.png`](trajectory/triangle_min_snap.png) |
+| Rectangle | [`rectangle_min_snap_demo.m`](trajectory/rectangle_min_snap_demo.m) | [`rectangle_min_snap_traj.csv`](trajectory/rectangle_min_snap_traj.csv) | [`rectangle_min_snap.png`](trajectory/rectangle_min_snap.png) |
+
+Elephant comparison (not flown): [`elephant_sparse_min_snap_demo.m`](trajectory/elephant_sparse_min_snap_demo.m), [`elephant_catmull_rom_demo.m`](trajectory/elephant_catmull_rom_demo.m).
+
 ## How it works
 
 ```
@@ -43,13 +60,13 @@ and extended by our group (see [What we changed](#what-we-changed)).
 python laptop/tag_stream.py --esp-ip 172.20.10.13
 
 # Ellipse
-python laptop/tag_mission.py --drone-id 3 --trajectory trajectory/ellipse_asym_traj.csv --no-return-home --takeoff-wait 14 --confirm
-# Elephant
-python laptop/tag_mission.py --drone-id 3 --trajectory trajectory/elephant_min_snap_traj.csv --takeoff-wait 14 --no-return-home --confirm
+python laptop/tag_mission.py --drone-id 3 --trajectory trajectory/ellipse_asym_traj.csv --takeoff-wait 14 --no-return-home --confirm
+# Elephant (returns to the start before landing)
+python laptop/tag_mission.py --drone-id 3 --trajectory trajectory/elephant_min_snap_traj.csv --takeoff-wait 14 --confirm
+# Triangle
+python laptop/tag_mission.py --drone-id 3 --trajectory trajectory/triangle_min_snap_traj.csv --takeoff-wait 14 --no-return-home --confirm
 # Rectangle
-python laptop/tag_mission.py --drone-id 3 --trajectory trajectory/rectangle_min_snap_traj.csv --takeoff-wait 14 --confirm
-# Petals
-python laptop/tag_mission.py --drone-id 3 --trajectory trajectory/petals_traj.csv --takeoff-wait 14 --confirm
+python laptop/tag_mission.py --drone-id 3 --trajectory trajectory/rectangle_min_snap_traj.csv --takeoff-wait 14 --no-return-home --confirm
 ```
 
 - `--confirm` asks you to type `GO-3` before anything flies.
@@ -72,16 +89,25 @@ All paths start and end at (0, 0) and cruise at up to 0.297 m/s;
 
 | Path | CSV | Made with | Time |
 |---|---|---|---|
-| Lopsided ellipse (1.3 m left / 0.9 m right, shifted 0.2 m left) | `ellipse_asym_traj.csv` | `make_ellipse.py` (constant speed) | 38 s |
-| Elephant (15 points) | `elephant_min_snap_traj.csv` | `elephant_min_snap_demo.m` (MATLAB minimum-snap) | 79 s |
-| Rectangle over the likely tag spots | `rectangle_min_snap_traj.csv` | `rectangle_min_snap_demo.m` (MATLAB minimum-snap) | 50 s |
-| Petals, passing over tags 17 and 19 | `petals_traj.csv` | `make_petals.py` (Catmull-Rom, curvature-limited speed) | 83 s |
+| Lopsided ellipse (1.3 m left / 0.9 m right, shifted 0.2 m left) | [`ellipse_asym_traj.csv`](trajectory/ellipse_asym_traj.csv) | [`make_ellipse.py`](trajectory/make_ellipse.py) (constant speed) | 38.4 s |
+| Elephant (15 waypoints) | [`elephant_min_snap_traj.csv`](trajectory/elephant_min_snap_traj.csv) | [`elephant_min_snap_demo.m`](trajectory/elephant_min_snap_demo.m) (MATLAB minimum-snap) | 79.0 s |
+| Triangle (0, 0) → (3.8, 1.3) → (1.0, −1.5) → (0, 0) | [`triangle_min_snap_traj.csv`](trajectory/triangle_min_snap_traj.csv) | [`triangle_min_snap_demo.m`](trajectory/triangle_min_snap_demo.m) (MATLAB, straight edges with minimum-snap corners) | 37.8 s |
+| Rectangle over the likely tag spots | [`rectangle_min_snap_traj.csv`](trajectory/rectangle_min_snap_traj.csv) | [`rectangle_min_snap_demo.m`](trajectory/rectangle_min_snap_demo.m) (MATLAB, same method as the triangle) | 50.4 s |
 
 Minimum-snap uses one 7th-order polynomial per leg and minimises the snap (the
 fourth derivative of position). The result is smooth enough for PX4 to track
 closely. Open a `.m` file in MATLAB and press Run to regenerate its CSV and
-plot. Other paths in `trajectory/` (line, stem-square, triangle, lawnmower,
-min-snap ellipses) were for testing.
+plot.
+
+**How the elephant was made** (report Section 3.2). These two scripts are for
+comparison only and were not flown:
+- [`elephant_sparse_min_snap_demo.m`](trajectory/elephant_sparse_min_snap_demo.m): minimum-snap through only 8 of the 15
+  waypoints. With so few constraints the path swings far outside them.
+- [`elephant_catmull_rom_demo.m`](trajectory/elephant_catmull_rom_demo.m): a Catmull-Rom spline through the same 8
+  waypoints, which stays close to the intended shape. We used it as a
+  reference to pick the 7 extra waypoints for the final minimum-snap path.
+
+The other two min-snap ellipses in `trajectory/` were for testing.
 
 ## Arena set-up
 
@@ -102,14 +128,16 @@ Tag positions are in `laptop/tag_arena.yaml`, in metres from the start point
 
 ## Repo layout
 
-| Folder | What's in it |
+| Path | What's in it |
 |---|---|
 | `main/` | ESP32-S3 firmware (C, FreeRTOS): Wi-Fi, PX4 MAVLink link, takeoff/landing, trajectory player, obstacle avoidance, AprilTag detection, camera stream |
 | `components/` | Libraries used by the firmware: esp-apriltag, MAVLink, VL53L5CX ToF driver |
 | `laptop/` | Python: `tag_mission.py` (the mission), `tag_stream.py` (live feed), and the modules they use |
 | `laptop/tag_arena.yaml` | Known tag positions and target IDs |
 | `trajectory/` | Trajectory generators (MATLAB `.m`, Python) and their CSVs and plots |
-| `tools/` | ESP-IDF version pin |
+| [`tools/camera_calibration/`](tools/camera_calibration/) | Camera calibration: `cam_calib.py` (checkerboard calibration), its result `calib_drone3.yaml`, and the XIAO ESP32-S3 firmware that streams the camera over USB (see its README) |
+| `tools/idf-pin.env` | ESP-IDF version pin |
+| [`CAD files.zip`](CAD%20files.zip) | SolidWorks CAD of the drone: the assembly `MajorQuest Drone Asm.SLDASM` and its parts (frame, prop guard, flow-sensor mount, spacers, battery) |
 
 Main laptop modules:
 - `comms.py`, `protocol.py`: UDP messages to and from the drone.
