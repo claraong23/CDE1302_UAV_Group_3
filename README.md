@@ -74,7 +74,7 @@ python laptop/tag_mission.py --drone-id 3 --trajectory trajectory/rectangle_min_
   path. It has to be long enough for the drone to reach 1 m, or the path is
   flown low.
 - `--return-home` (the default) slides the drone back to (0, 0) in up to two
-  short hops before landing, which costs about 10 s.
+  short hops before landing, which costs about 15 s.
   `--no-return-home` lands where the path ends.
 - `--dry-run` doesn't fly. It prints the tag-corrected position while you
   carry the drone around, which is a quick check of the camera and the tag
@@ -120,7 +120,9 @@ Tag positions are in `laptop/tag_arena.yaml`, in metres from the start point
 | y | 0.00 | 0.00 | 0.915 | −1.37 | −1.37 | 0.915 |
 
 - **Targets** are any tag with ID 0–14; only a few are placed.
-- **Tag size:** all tags are tag16h5 with a 114 mm black square.
+- **Tag size:** all tags are tag16h5. Targets have a 114 mm black square,
+  known tags 120 mm (`tag_size_m` and `known_tag_size_m` in
+  `tag_arena.yaml`; the laptop rescales known-tag distances).
 - **Adding a known tag** needs no reflash: add a line under `known_tags:`.
   Use ID 21, 22 or 23 (the drone detects IDs 0–23), and don't reuse a target
   ID.
@@ -140,6 +142,9 @@ Tag positions are in `laptop/tag_arena.yaml`, in metres from the start point
 | [`CAD files.zip`](CAD%20files.zip) | SolidWorks CAD of the drone: the assembly `MajorQuest Drone Asm.SLDASM` and its parts (frame, prop guard, flow-sensor mount, spacers, battery) |
 
 Main laptop modules:
+- `tag_mission.py`: the mission. Uploads and flies the trajectory, corrects
+  drift from known tags, places targets, re-corrects after landing and logs
+  the run.
 - `comms.py`, `protocol.py`: UDP messages to and from the drone.
 - `apriltag_host.py`: the drone's own AprilTag C code compiled for the
   laptop, so `tag_stream.py` decodes tags exactly as the drone does.
@@ -159,7 +164,7 @@ reflash.
   cy 118.1; 0.30 px error). The base code had fx 163.5 and fy 153.2. These
   numbers turn a tag's size in the picture into its distance, so wrong values
   give wrong positions. The same numbers are in `laptop/apriltag_host.py`.
-- **Tag size** 0.12 m → 0.114 m, the measured black square.
+- **Tag size** 0.12 m → 0.114 m, the measured black square of the targets.
 - **Fixed camera exposure** (exposure 50, auto gain): less motion blur on the
   tags while flying.
 - **Tag IDs 0–23** instead of 0–21
